@@ -86,7 +86,8 @@ def init_database():
     """Test database connection"""
     try:
         with get_db_session() as session:
-            session.execute("SELECT 1;")
+            from sqlalchemy import text
+            session.execute(text("SELECT 1;"))
         logger.info("✅ Database connection successful")
     except Exception as e:
         logger.error(f"❌ Database initialization failed: {e}")
