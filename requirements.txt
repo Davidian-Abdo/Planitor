@@ -19,7 +19,7 @@ xlsxwriter>=3.1.0
 # Visualization
 plotly>=5.15.0
 altair>=5.0.0
-NetworkX 3.4.1
+NetworkX>=3.4.1
 matplotlib
 
 # Utilities
