@@ -18,102 +18,67 @@ from frontend.components.navigation.sidebar import render_project_selector
 
 logger = logging.getLogger(__name__)
 
-
 @require_auth("write")
-def show(db_session, user_id):
+def show(db_session, services, user_id):
     """
-    PROFESSIONAL Project Setup with PROPER session state initialization
+    PROFESSIONAL Project Setup - CORRECTED VERSION
+    Properly uses service layer as required
     """
     
-    # ==================== CRITICAL: INITIALIZE SESSION STATE FIRST ====================
+    # ==================== INITIALIZE SESSION STATE ====================
     _initialize_session_state(user_id)
     
-    # ==================== RERUN DIAGNOSTICS ====================
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("🔧 RERUN DIAGNOSTICS")
+    # ==================== GET SERVICES ====================
+    project_service = services['project_service']
     
-    # Diagnostic 1: Rerun Counter
-    if 'diagnostic_rerun_count' not in st.session_state:
-        st.session_state.diagnostic_rerun_count = 0
-    st.session_state.diagnostic_rerun_count += 1
-    
-    st.sidebar.metric("🔄 Rerun Count", st.session_state.diagnostic_rerun_count)
-    st.sidebar.write(f"**project_config exists:** {'✅' if 'project_config' in st.session_state else '❌'}")
-    st.sidebar.write(f"**project_zones exists:** {'✅' if 'project_zones' in st.session_state else '❌'}")
-
-    logger.info(f"🧱 Project Setup page loaded for user {user_id} - Rerun #{st.session_state.diagnostic_rerun_count}")
+    logger.info(f"🧱 Project Setup page loaded for user {user_id}")
 
     try:
         # Get session manager from session state
         session_manager = st.session_state.auth_session_manager
         user_info = _get_user_info(session_manager)
         
-        # Initialize widget manager for this page
-        from backend.utils.widget_manager import widget_manager
-        page_context = "project_setup"
-        
         # Professional header
         st.markdown('<div class="main-header">🏗️ Project Setup & Configuration</div>', unsafe_allow_html=True)
-        st.caption(f"User: {user_info['username']} | Role: {user_info['role']} | Rerun: #{st.session_state.diagnostic_rerun_count}")
+        st.caption(f"User: {user_info['username']} | Role: {user_info['role']}")
         
         # Render project selector
         render_project_selector(db_session, user_id)
         
-        # ==================== DEBUG: SHOW CURRENT STATE ====================
-        with st.expander("🔍 DEBUG: Current Session State", expanded=False):
-            col1, col2 = st.columns(2)
-            with col1:
-                st.write("**project_config:**")
-                if 'project_config' in st.session_state:
-                    st.json(st.session_state.project_config)
-                else:
-                    st.error("❌ project_config NOT FOUND")
-            
-            with col2:
-                st.write("**project_zones:**")
-                if 'project_zones' in st.session_state:
-                    st.json(st.session_state.project_zones)
-                else:
-                    st.error("❌ project_zones NOT FOUND")
-        
-        # ==================== SIMPLIFIED FORM RENDERING ====================
+        # ==================== FORM RENDERING WITH SERVICES ====================
         st.markdown("---")
         st.subheader("📋 Project Configuration")
         
-        # Create form instances fresh each render
-        try:
-            basic_form = ProjectBasicInfoForm(
-                user_id=user_id,
-                page_context=page_context
-            )
-            
-            zone_form = ZoneConfigurationForm(
-                user_id=user_id, 
-                page_context=page_context
-            )
-            
-            # Professional tab interface
-            tab1, tab2, tab3 = st.tabs([
-                "📋 Basic Information", 
-                "🏢 Zones & Floors", 
-                "⚙️ Advanced Configuration"
-            ])
-            
-            with tab1:
-                _render_basic_info_tab_simplified(basic_form, user_id, page_context)
-            
-            with tab2:
-                _render_zones_config_tab_simplified(zone_form, user_id, page_context)
-            
-            with tab3:
-                _render_advanced_config_tab(user_id, page_context)
-            
-            _render_save_section(db_session, user_id, page_context)
-            
-        except Exception as form_error:
-            st.error(f"❌ Form initialization error: {form_error}")
-            logger.error(f"Form initialization failed: {form_error}")
-            traceback.print_exc()
+        # Create form instances with injected services
+        basic_form = ProjectBasicInfoForm(
+            project_service=project_service,
+            user_id=user_id,
+            page_context="project_setup"
+        )
+        
+        zone_form = ZoneConfigurationForm(
+            project_service=project_service,
+            user_id=user_id, 
+            page_context="project_setup"
+        )
+        
+        # Professional tab interface
+        tab1, tab2, tab3 = st.tabs([
+            "📋 Basic Information", 
+            "🏢 Zones & Floors", 
+            "⚙️ Advanced Configuration"
+        ])
+        
+        with tab1:
+            _render_basic_info_tab(basic_form, user_id)
+        
+        with tab2:
+            _render_zones_config_tab(zone_form, user_id)
+        
+        with tab3:
+            _render_advanced_config_tab(user_id, "project_setup")
+        
+        _render_save_section(project_service, user_id, "project_setup")
         
     except Exception as e:
         logger.error(f"❌ FATAL Error in project setup: {e}")
@@ -121,13 +86,10 @@ def show(db_session, user_id):
         st.code(traceback.format_exc())
         
 def _initialize_session_state(user_id):
-    """
-    CRITICAL: Initialize ALL session state variables at the start
-    This must be called BEFORE any other session state access
-    """
+    """Initialize session state for project setup"""
     logger.debug(f"🔄 Initializing session state for user {user_id}")
     
-    # Initialize project configuration - THIS WAS MISSING!
+    # Initialize project configuration
     if 'project_config' not in st.session_state:
         st.session_state.project_config = {
             'basic_info': {
@@ -136,7 +98,7 @@ def _initialize_session_state(user_id):
                 'start_date': datetime.now().date(),
                 'description': '',
                 'project_type': 'Commercial',
-                'client_name': '',
+                'owner': '',
                 'location': ''
             },
             'zones': {},
@@ -152,13 +114,6 @@ def _initialize_session_state(user_id):
     if 'project_zones' not in st.session_state:
         st.session_state.project_zones = {}
         logger.debug("✅ project_zones initialized in session state")
-    
-    # Initialize widget manager
-    if 'widget_manager' not in st.session_state:
-        from backend.utils.widget_manager import widget_manager
-        st.session_state.widget_manager = widget_manager
-        logger.debug("✅ widget_manager initialized in session state")
-
 
 def _get_user_info(session_manager):
     """Get user information from SessionManager"""
@@ -169,16 +124,15 @@ def _get_user_info(session_manager):
         'full_name': session_manager.get_username()
     }
 
-
-def _render_basic_info_tab_simplified(form, user_id, page_context):
-    """Simplified basic info tab"""
+def _render_basic_info_tab(form, user_id):
+    """Basic info tab using service layer"""
     st.subheader("📋 Project Basic Information")
     
     try:
         result = form.render()
         
         if result:
-            # Update project_config with form results
+            # Update project_config with validated form results
             st.session_state.project_config['basic_info'].update(result)
             st.success("✅ Basic project information updated!")
             logger.info(f"✅ Basic info updated: {result.get('project_name')}")
@@ -187,9 +141,8 @@ def _render_basic_info_tab_simplified(form, user_id, page_context):
         st.error(f"❌ Basic form render error: {e}")
         logger.error(f"❌ Basic form render failed: {e}")
 
-
-def _render_zones_config_tab_simplified(form, user_id, page_context):
-    """Simplified zones config tab"""
+def _render_zones_config_tab(form, user_id):
+    """Zones config tab using service layer"""
     st.subheader("🏢 Building Zones Configuration")
 
     try:
@@ -200,14 +153,13 @@ def _render_zones_config_tab_simplified(form, user_id, page_context):
         st.error(f"❌ Zone form render error: {e}")
         logger.error(f"❌ Zone form render failed: {e}")
 
-
 def _render_advanced_config_tab(user_id, page_context):
-    """Advanced configuration tab with SAFE session state access"""
+    """Advanced configuration tab"""
     logger.debug("🔄 Rendering advanced config tab")
     
     st.subheader("⚙️ Advanced Project Configuration")
     
-    # ✅ SAFE: Check if project_config exists before accessing
+    # Check if project_config exists
     if 'project_config' not in st.session_state:
         st.error("❌ Project configuration not initialized")
         return
@@ -259,15 +211,14 @@ def _render_advanced_config_tab(user_id, page_context):
     
     logger.debug("✅ Advanced config updated")
 
-
-def _render_save_section(db_session, user_id, page_context):
-    """Save section with professional controls"""
+def _render_save_section(project_service, user_id, page_context):
+    """Save section using service layer"""
     logger.debug("🔄 Rendering save section")
     
     st.markdown("---")
     st.subheader("💾 Save Configuration")
     
-    # ✅ SAFE: Check if required session state exists
+    # Validate required session state exists
     if 'project_zones' not in st.session_state:
         st.error("❌ Zones configuration not initialized")
         return
@@ -288,7 +239,7 @@ def _render_save_section(db_session, user_id, page_context):
                     use_container_width=True,
                     key=save_button_key):
             logger.info("💾 Save project configuration button clicked")
-            _save_project_configuration_professional(db_session, user_id)
+            _save_project_configuration(project_service, user_id)
     
     with col2:
         export_button_key = widget_manager.generate_key("export_json_btn", page_context, user_id)
@@ -319,12 +270,11 @@ def _render_save_section(db_session, user_id, page_context):
             except Exception as e:
                 st.error(f"❌ Error importing configuration: {e}")
 
-
-def _save_project_configuration_professional(db_session, user_id):
-    """Save project configuration to database with professional error handling"""
+def _save_project_configuration(project_service, user_id):
+    """Save project configuration using service layer"""
     logger.info(f"💾 Saving project configuration for user {user_id}")
     
-    # Enhanced validation with safe session state access
+    # Enhanced validation
     if 'project_zones' not in st.session_state or not st.session_state.project_zones:
         st.error("❌ Please configure at least one zone")
         logger.warning("❌ Save attempted without zones configured")
@@ -343,10 +293,7 @@ def _save_project_configuration_professional(db_session, user_id):
         return
     
     try:
-        from backend.services.project_service import ProjectService
-        project_service = ProjectService(db_session)
-        
-        # Get zones data in correct format
+        # Get zones data
         zones_data = st.session_state.project_zones.copy()
         
         # Prepare complete project data
@@ -363,7 +310,7 @@ def _save_project_configuration_professional(db_session, user_id):
         
         logger.info(f"📊 Project data prepared for saving: {project_data['name']} with {len(zones_data)} zones")
         
-        # Validate configuration
+        # ✅ USE SERVICE LAYER FOR VALIDATION
         validation_result = project_service.validate_project_configuration(project_data)
         
         if not validation_result['is_valid']:
@@ -376,10 +323,10 @@ def _save_project_configuration_professional(db_session, user_id):
         for warning in validation_result['warnings']:
             st.warning(f"⚠️ {warning}")
         
-        # Save project
+        # ✅ USE SERVICE LAYER FOR SAVING
         with st.spinner("💾 Saving project configuration..."):
             if st.session_state.get('current_project_id'):
-                # Update existing project
+                # Update existing project using service
                 success = project_service.update_project(user_id, st.session_state.current_project_id, project_data)
                 if success:
                     st.success("✅ Project updated successfully!")
@@ -389,7 +336,7 @@ def _save_project_configuration_professional(db_session, user_id):
                     st.error("❌ Failed to update project")
                     logger.error(f"❌ Project update failed: {project_data['name']}")
             else:
-                # Create new project
+                # Create new project using service
                 project_result = project_service.create_project(user_id, project_data)
                 if project_result:
                     st.session_state.current_project_id = project_result['id']

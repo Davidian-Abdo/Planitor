@@ -1,3 +1,0 @@
-[logger]
-level = "debug"
-messageFormat = "%(asctime)s %(levelname)s %(name)s: %(message)s"

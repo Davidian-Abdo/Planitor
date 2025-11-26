@@ -11,7 +11,7 @@ from backend.models.db_models import ProjectDB, ScheduleDB
 
 logger = logging.getLogger(__name__)
 
-class ProjectRepository:
+class ProjectRepository: 
     """Professional project data repository with enhanced error handling"""
     
     def __init__(self, session: Session):

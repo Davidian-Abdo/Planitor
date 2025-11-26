@@ -56,9 +56,9 @@ if __name__ == "__main__":
          #"backend/db/repositories/task_repo.py",
          #"backend/db/repositories/resource_repo.py",
 
-        "frontend/pages/generate_schedule.py",
-          "backend/services/scheduling_service.py",
-           "backend/db/repositories/schedule_repo.py",
+        #"frontend/pages/generate_schedule.py",
+         # "backend/services/scheduling_service.py",
+          # "backend/db/repositories/schedule_repo.py",
 
 
     ]
