@@ -5,7 +5,7 @@ Centralized Input Validation System
 import re
 from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, date
-from email_validator import validate_email, EmailNotValidError
+from .email_validator import validate_email, EmailNotValidError
 
 class Validator:
     """Professional input validation with consistent patterns"""
