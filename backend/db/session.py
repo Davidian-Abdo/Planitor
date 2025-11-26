@@ -14,10 +14,11 @@ import streamlit as st
 logger = logging.getLogger(__name__)
 
 # --------------------------
-# Database URL from Supabase secrets.toml
-# --------------------------
+# Database URL from Supabase secrets.toml 
 try:
-    DATABASE_URL = st.secrets["SUPABASE_URL"]  # Hard-coded call to secrets.toml
+    DATABASE_URL  = "postgresql://postgres:ABDOABDOABDO@db.vigyqbzjtpqjzlpuyzvf.supabase.co:5432/postgres"
+# --------------------------
+    # st.secrets["SUPABASE_URL"]  # Hard-coded call to secrets.toml
 except KeyError:
     logger.error("❌ SUPABASE_URL not found in secrets.toml. Check Streamlit Cloud configuration.")
     DATABASE_URL = None
@@ -34,15 +35,15 @@ def create_engine_production() -> Engine:
         DATABASE_URL,
         echo=False,  # Set True for SQL logging during debugging
         pool_pre_ping=True,
-        pool_size=10,
+        pool_size=15,
         max_overflow=20
     )
 
 # --------------------------
 # Session Factory
 # --------------------------
-_engine = create_engine_production()
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+engine = create_engine_production()
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 # --------------------------
 # Get a new database session

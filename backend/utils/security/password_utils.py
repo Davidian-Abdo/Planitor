@@ -102,7 +102,7 @@ def generate_secure_password(length: int = 12) -> str:
         logger.error(f"Error generating secure password: {e}")
         raise
 
-def validate_password_complexity(password: str) -> dict:
+def validate_password_strength(password: str) -> dict:
     """
     Validate password complexity requirements
     

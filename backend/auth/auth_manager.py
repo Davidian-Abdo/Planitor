@@ -81,6 +81,12 @@ class AuthManager:
         try:
             logger.info(f"Registration attempt for user: {username}")
             
+            valid_roles = ["admin", "ingénieur", "directeur"]
+            # ✅ Validate role
+            if role.lower() not in valid_roles:
+                logger.error(f"Invalid role provided: {role}")
+                return None
+
             # Create new user
             user = self.user_service.create_user(
                 username=username,

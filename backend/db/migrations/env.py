@@ -16,7 +16,7 @@ project_root = os.path.dirname(backend_dir)  # project root
 # Add project root to Python path
 sys.path.insert(0, project_root)
 
-print(f"🔧 Alembic Path Debug:")
+print(f" Alembic Path Debug:")
 print(f"  env.py location: {current_file}")
 print(f"  Project root: {project_root}")
 print(f"  Python path: {sys.path}")

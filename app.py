@@ -118,6 +118,7 @@ class ConstructionApp:
         These services are request-scoped and not stored in session state
         """
         try:
+            from backend.services.user_service import UserService
             from backend.services.project_service import ProjectService
             from backend.services.user_task_service import UserTaskService
             from backend.services.resource_service import ResourceService
@@ -128,6 +129,7 @@ class ConstructionApp:
             from backend.services.monitoring_service import MonitoringService
             
             services = {
+                'user_service': UserService(db_session),  
                 'project_service': ProjectService(db_session),
                 'task_service': UserTaskService(db_session),
                 'resource_service': ResourceService(db_session),

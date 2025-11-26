@@ -5,7 +5,7 @@ import streamlit as st
 from backend.auth.auth_manager import AuthManager
 
 def registration_form_component() -> bool:
-    """Enhanced registration form with proper session management"""
+    """CORRECTED registration form with proper session management"""
     with st.form("registration_form"):
         st.subheader("👤 Create New Account")
         
@@ -15,8 +15,8 @@ def registration_form_component() -> bool:
             username = st.text_input("Username", placeholder="Choose a username")
         with col2:
             email = st.text_input("Email", placeholder="your.email@company.com")
-            role = st.selectbox("Role", ["Ingénieur", "Directeur", "Admin"], 
-                              help="Ingénieur: Basic user, Directeur: Manager access, Admin: Full system access")
+            role = st.selectbox("Role", ["Admin", "Directeur", "Ingénieur"], 
+                              help="Ingénieur: Basic user, Directeurr: Manager access, Admin: Full system access")
         
         password = st.text_input("Password", type="password", 
                                placeholder="Create a strong password")
@@ -37,47 +37,73 @@ def registration_form_component() -> bool:
             st.error("Passwords do not match")
             return False
         
-        # ✅ Use enhanced password validation from SecurityConfig
-        from backend.auth_config import validate_password_strength
-        password_validation = validate_password_strength(password)
-        if not password_validation['is_valid']:
-            st.error("Password does not meet security requirements:")
-            for issue in password_validation['issues']:
-                st.error(f"• {issue}")
+        # ✅ Use enhanced password validation
+        from backend.utils.validators import Validator
+        is_valid, errors = Validator.validate_user_data({
+            'username': username,
+            'email': email,
+            'password': password
+        })
+        
+        if not is_valid:
+            for error in errors:
+                st.error(f"❌ {error}")
             return False
         
         if not agree_terms:
             st.error("Please agree to the terms and conditions")
             return False
         
-        # ✅ Enhanced registration with proper error handling
+        # ✅ CORRECTED: Use single database session
         try:
             from backend.db.session import get_db_session
-            with get_db_session() as db_session:
-                auth_manager = AuthManager(db_session)
-                
-                result = auth_manager.register_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    full_name=full_name,
-                    role=role.lower()  # ✅ Normalize role case
-                )
-                
-                if result:
+            db_session = get_db_session()
+            
+            # Create AuthManager with the session
+            from backend.auth.auth_manager import AuthManager
+            auth_manager = AuthManager(db_session)
+            
+            # Attempt registration
+            result = auth_manager.register_user(
+                username=username,
+                email=email,
+                password=password,
+                full_name=full_name,
+                role=role  # ✅ Use exact role values
+            )
+            
+            if result:
+                # ✅ Commit the transaction
+                from backend.db.session import safe_commit
+                if safe_commit(db_session, "User registration"):
                     st.success("✅ Account created successfully! You can now log in.")
                     
-                    # ✅ Optional: Auto-login after registration
+                    # ✅ Correct page redirection
                     if st.button("🔐 Login Now"):
-                        st.switch_page("pages/login.py")
+                        st.session_state.current_page = "login"
+                        st.rerun()
                     
                     return True
                 else:
-                    st.error("❌ Username or email already exists")
+                    st.error("❌ Failed to save user to database")
                     return False
-                    
+            else:
+                st.error("❌ Username or email already exists")
+                return False
+                
         except Exception as e:
             st.error(f"❌ Registration failed: {str(e)}")
+            # ✅ Ensure session is properly closed
+            try:
+                db_session.rollback()
+                db_session.close()
+            except:
+                pass
             return False
+        finally:
+            try:
+                db_session.close()
+            except:
+                pass
     
     return False

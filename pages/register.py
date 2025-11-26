@@ -10,7 +10,7 @@ st.set_page_config(
     layout="centered"
 )
 
-def main():
+def main(): 
     st.title("👤 Create Account")
     st.markdown("Join the Construction Project Planner platform")
     
@@ -18,7 +18,7 @@ def main():
         st.balloons()
         st.success("Account created successfully! You can now log in.")
         if st.button("Go to Login"):
-            st.switch_page("pages/0_🔐_Login.py")
+            st.switch_page("pages/login.py")
 
 if __name__ == "__main__":
     main()
