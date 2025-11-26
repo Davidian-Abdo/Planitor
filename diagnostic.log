@@ -1,0 +1,74 @@
+2025-11-06 15:42:39,501 - __main__ - INFO - 🚀 STARTING COMPREHENSIVE DIAGNOSTIC
+2025-11-06 15:42:39,502 - __main__ - INFO - This will identify exactly where the blank page occurs
+2025-11-06 15:42:39,503 - __main__ - INFO - ============================================================
+2025-11-06 15:42:39,504 - __main__ - INFO - STEP: Checking File Structure
+2025-11-06 15:42:39,505 - __main__ - INFO - ============================================================
+2025-11-06 15:42:39,505 - __main__ - INFO - ✅ frontend/pages/login.py - EXISTS
+2025-11-06 15:42:39,506 - __main__ - INFO - ✅ pages/project_setup.py - EXISTS
+2025-11-06 15:42:39,507 - __main__ - INFO - ✅ frontend/pages/zone_sequence.py - EXISTS
+2025-11-06 15:42:39,508 - __main__ - INFO - ✅ frontend/pages/templates_manager.py - EXISTS
+2025-11-06 15:42:39,510 - __main__ - INFO - ✅ frontend/pages/generate_schedule.py - EXISTS
+2025-11-06 15:42:39,511 - __main__ - INFO - ✅ frontend/pages/task_library.py - EXISTS
+2025-11-06 15:42:39,512 - __main__ - INFO - ✅ frontend/pages/progress_monitoring.py - EXISTS
+2025-11-06 15:42:39,514 - __main__ - INFO - ✅ frontend/pages/performance_dashboard.py - EXISTS
+2025-11-06 15:42:39,515 - __main__ - INFO - ✅ frontend/pages/reports_analytics.py - EXISTS
+2025-11-06 15:42:39,516 - __main__ - INFO - ✅ frontend/components/navigation/sidebar.py - EXISTS
+2025-11-06 15:42:39,517 - __main__ - INFO - ✅ frontend/components/navigation/header.py - EXISTS
+2025-11-06 15:42:39,517 - __main__ - INFO - ============================================================
+2025-11-06 15:42:39,518 - __main__ - INFO - STEP: Testing Backend Services
+2025-11-06 15:42:39,518 - __main__ - INFO - ============================================================
+2025-11-06 15:42:40,455 - backend.db.session - INFO - 🔗 Connecting to PostgreSQL: localhost:5432/Planitor_db
+2025-11-06 15:42:40,704 - backend.db.session - INFO - ✅ Production database engine created successfully
+2025-11-06 15:42:40,705 - __main__ - INFO - ✅ Database session imports successful
+2025-11-06 15:42:42,635 - __main__ - INFO - ✅ UserService import successful
+2025-11-06 15:42:44,343 - __main__ - INFO - ✅ AuthManager import successful
+2025-11-06 15:42:44,344 - __main__ - INFO - ✅ SessionManager import successful
+2025-11-06 15:42:44,360 - backend.db.session - INFO - ✅ Database tables already exist - skipping creation
+2025-11-06 15:42:44,367 - __main__ - INFO - ✅ All backend services initialized successfully
+2025-11-06 15:42:44,368 - __main__ - INFO - ============================================================
+2025-11-06 15:42:44,368 - __main__ - INFO - STEP: Testing Frontend Components
+2025-11-06 15:42:44,368 - __main__ - INFO - ============================================================
+2025-11-06 15:42:44,379 - __main__ - INFO - ✅ Sidebar component imported
+2025-11-06 15:42:44,385 - __main__ - INFO - ✅ Header component imported
+2025-11-06 15:42:44,401 - __main__ - INFO - ============================================================
+2025-11-06 15:42:44,401 - __main__ - INFO - STEP: Testing Page Imports
+2025-11-06 15:42:44,402 - __main__ - INFO - ============================================================
+2025-11-06 15:42:44,523 - __main__ - INFO - ✅ pages.project_setup - imported successfully
+2025-11-06 15:42:44,525 - __main__ - INFO - ✅ pages.project_setup - show() function exists
+2025-11-06 15:42:44,830 - __main__ - INFO - ✅ frontend.pages.zone_sequence - imported successfully
+2025-11-06 15:42:44,831 - __main__ - INFO - ✅ frontend.pages.zone_sequence - show() function exists
+2025-11-06 15:42:44,831 - __main__ - INFO - ✅ frontend.pages.templates_manager - imported successfully
+2025-11-06 15:42:44,832 - __main__ - INFO - ✅ frontend.pages.templates_manager - show() function exists
+2025-11-06 15:42:44,832 - __main__ - INFO - ✅ frontend.pages.generate_schedule - imported successfully
+2025-11-06 15:42:44,832 - __main__ - INFO - ✅ frontend.pages.generate_schedule - show() function exists
+2025-11-06 15:42:44,833 - __main__ - INFO - ✅ frontend.pages.task_library - imported successfully
+2025-11-06 15:42:44,833 - __main__ - INFO - ✅ frontend.pages.task_library - show() function exists
+2025-11-06 15:42:44,833 - __main__ - INFO - ✅ frontend.pages.progress_monitoring - imported successfully
+2025-11-06 15:42:44,834 - __main__ - INFO - ✅ frontend.pages.progress_monitoring - show() function exists
+2025-11-06 15:42:44,834 - __main__ - INFO - ✅ frontend.pages.performance_dashboard - imported successfully
+2025-11-06 15:42:44,834 - __main__ - INFO - ✅ frontend.pages.performance_dashboard - show() function exists
+2025-11-06 15:42:44,836 - __main__ - INFO - ✅ frontend.pages.reports_analytics - imported successfully
+2025-11-06 15:42:44,837 - __main__ - INFO - ✅ frontend.pages.reports_analytics - show() function exists
+2025-11-06 15:42:44,838 - __main__ - INFO - ============================================================
+2025-11-06 15:42:44,840 - __main__ - INFO - STEP: Testing Login Page
+2025-11-06 15:42:44,840 - __main__ - INFO - ============================================================
+2025-11-06 15:42:45,024 - __main__ - INFO - ✅ Login page imported successfully
+2025-11-06 15:42:45,025 - __main__ - INFO - ✅ show_login_page is callable
+2025-11-06 15:42:45,025 - __main__ - INFO - ============================================================
+2025-11-06 15:42:45,025 - __main__ - INFO - STEP: Simulating Post-Login Flow
+2025-11-06 15:42:45,025 - __main__ - INFO - ============================================================
+2025-11-06 15:42:45,025 - __main__ - INFO - ============================================================
+2025-11-06 15:42:45,025 - __main__ - INFO - STEP: Testing Backend Services
+2025-11-06 15:42:45,026 - __main__ - INFO - ============================================================
+2025-11-06 15:42:45,026 - __main__ - INFO - ✅ Database session imports successful
+2025-11-06 15:42:45,026 - __main__ - INFO - ✅ UserService import successful
+2025-11-06 15:42:45,027 - __main__ - INFO - ✅ AuthManager import successful
+2025-11-06 15:42:45,027 - __main__ - INFO - ✅ SessionManager import successful
+2025-11-06 15:42:45,028 - backend.db.session - INFO - ✅ Database tables already exist - skipping creation
+2025-11-06 15:42:45,031 - __main__ - INFO - ✅ All backend services initialized successfully
+2025-11-06 15:42:45,031 - __main__ - INFO - Setting authenticated state...
+2025-11-06 15:42:45,032 - __main__ - INFO - ✅ Authentication state set
+2025-11-06 15:42:45,032 - __main__ - INFO - Retrieving user...
+2025-11-06 15:42:45,098 - __main__ - ERROR - ❌ USER RETRIEVAL FAILED - This is likely the main issue!
+2025-11-06 15:42:45,098 - __main__ - INFO - 🎯 DIAGNOSTIC COMPLETED
+2025-11-06 15:42:45,099 - __main__ - INFO - Check the logs above to see where the failure occurs

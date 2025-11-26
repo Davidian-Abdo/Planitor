@@ -1,0 +1,141 @@
+﻿streamlit : 2025-11-08 21:29:58.024 Filtered 122 packages down to 19 candidates for component scanning
+Au caractère Ligne:1 : 1
++ streamlit run app.py --server.fileWatcherType=none --logger.level=deb ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (2025-11-08 21:2...ponent scanning:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+2025-11-08 21:29:58.025 Scanning 19 candidate packages for component manifests using 12 worker threads
+2025-11-08 21:29:58.178 Found 0 component manifests total
+2025-11-08 21:29:58.178 No asset roots to watch
+2025-11-08 21:29:58.178 File watching not started
+2025-11-08 21:29:58.178 Starting new event loop for server
+2025-11-08 21:29:58.182 Starting server...
+2025-11-08 21:29:58.183 Serving static content from 
+C:\Users\Pc\Desktop\vscode\Planitor-Plan-Monitor\new_venv\Lib\site-packages\streamlit\static
+2025-11-08 21:29:58.190 Server started on port 8501
+2025-11-08 21:29:58.190 Runtime state: RuntimeState.INITIAL -> RuntimeState.NO_SESSIONS_CONNECTED
+
+  You can now view your Streamlit app in your browser.
+
+  Local URL: http://localhost:8501
+  Network URL: http://192.168.43.114:8501
+
+2025-11-08 21:29:58.193 Setting up signal handler
+2025-11-08 21:30:00.711 AppSession initialized (id=a55b8215-1589-41ab-a288-77aa4338d124)
+2025-11-08 21:30:00.711 Created new session for client 2557932461024. Session ID: a55b8215-1589-41ab-a288-77aa4338d124
+2025-11-08 21:30:00.711 Runtime state: RuntimeState.NO_SESSIONS_CONNECTED -> 
+RuntimeState.ONE_OR_MORE_SESSIONS_CONNECTED
+2025-11-08 21:30:00.749 Received the following back message:
+rerun_script {
+  widget_states {
+  }
+  context_info {
+    timezone: "Africa/Casablanca"
+    timezone_offset: -60
+    locale: "fr-MA"
+    url: "http://localhost:8501/"
+    is_embedded: false
+    color_scheme: "light"
+  }
+}
+
+2025-11-08 21:30:00.751 Beginning script thread
+2025-11-08 21:30:00.751 Running script RerunData(widget_states=, context_info=timezone: "Africa/Casablanca"
+timezone_offset: -60
+locale: "fr-MA"
+url: "http://localhost:8501/"
+is_embedded: false
+color_scheme: "light"
+)
+2025-11-08 21:30:00.752 Disconnecting files for session with ID a55b8215-1589-41ab-a288-77aa4338d124
+2025-11-08 21:30:00.752 Sessions still active: dict_keys([])
+2025-11-08 21:30:00.752 Files: 0; Sessions with files: 0
+2025-11-08 21:30:03,220 - backend.db.session - INFO - ­ƒöù Connecting to PostgreSQL: localhost:5432/Planitor_db
+2025-11-08 21:30:03,427 - backend.db.session - INFO - Ô£à Production database engine created successfully
+2025-11-08 21:30:03,436 - backend.db.session - INFO - Ô£à Database tables already exist - skipping creation
+2025-11-08 21:30:03,437 - __main__ - INFO - Ô£à Database initialized successfully
+2025-11-08 21:30:03,437 - __main__ - INFO - Ô£à Construction Planner application initialized successfully
+2025-11-08 21:30:03.912 Removing orphaned files...
+2025-11-08 21:33:46.381 Received the following back message:
+rerun_script {
+  widget_states {
+    widgets {
+      id: "$$ID-3a69762dff76a656be86c574a2914f3b-professional_login_username"
+      string_value: "A.daoudi"
+    }
+    widgets {
+      id: "$$ID-a55e56804ca839c0b52ac504568ee3c8-professional_login_password"
+      string_value: "123456"
+    }
+    widgets {
+      id: "$$ID-3c56a6d729ab4ec5ac2e965ebb9c9cc7-None"
+      bool_value: false
+    }
+    widgets {
+      id: "$$ID-dbcbfb0d6483d47839558d6ee4ea3501-FormSubmitter:professional_login_form-­ƒÜÇ Login"
+      trigger_value: true
+    }
+  }
+  page_script_hash: "d2a57dc1d883fd21fb9951699df71cc7"
+  context_info {
+    timezone: "Africa/Casablanca"
+    timezone_offset: -60
+    locale: "fr-MA"
+    url: "http://localhost:8501/"
+    is_embedded: false
+    color_scheme: "light"
+  }
+}
+
+2025-11-08 21:33:46.382 Beginning script thread
+2025-11-08 21:33:46.383 Running script RerunData(widget_states=widgets {
+  id: "$$ID-3a69762dff76a656be86c574a2914f3b-professional_login_username"
+  string_value: "A.daoudi"
+}
+widgets {
+  id: "$$ID-a55e56804ca839c0b52ac504568ee3c8-professional_login_password"
+  string_value: "123456"
+}
+widgets {
+  id: "$$ID-3c56a6d729ab4ec5ac2e965ebb9c9cc7-None"
+  bool_value: false
+}
+widgets {
+  id: "$$ID-dbcbfb0d6483d47839558d6ee4ea3501-FormSubmitter:professional_login_form-­ƒÜÇ Login"
+  trigger_value: true
+}
+, page_script_hash='d2a57dc1d883fd21fb9951699df71cc7', context_info=timezone: "Africa/Casablanca"
+timezone_offset: -60
+locale: "fr-MA"
+url: "http://localhost:8501/"
+is_embedded: false
+color_scheme: "light"
+)
+2025-11-08 21:33:46.383 Disconnecting files for session with ID a55b8215-1589-41ab-a288-77aa4338d124
+2025-11-08 21:33:46.383 Sessions still active: dict_keys([])
+2025-11-08 21:33:46.384 Files: 0; Sessions with files: 0
+2025-11-08 21:33:46,392 - backend.db.session - INFO - Ô£à Database tables already exist - skipping creation
+2025-11-08 21:33:46,393 - __main__ - INFO - Ô£à Database initialized successfully
+2025-11-08 21:33:46,394 - __main__ - INFO - Ô£à Construction Planner application initialized successfully
+2025-11-08 21:33:46,418 - backend.auth.auth_manager - INFO - Authentication attempt for user: A.daoudi
+2025-11-08 21:33:47,074 - backend.services.user_service - INFO - User authenticated successfully: A.daoudi
+2025-11-08 21:33:47,085 - backend.auth.auth_manager - INFO - User A.daoudi authenticated successfully
+2025-11-08 21:33:47,087 - backend.auth.session_manager - INFO - Session created for user: A.daoudi
+2025-11-08 21:33:47,087 - frontend.components.forms.login_form - INFO - Professional user A.daoudi logged in 
+successfully. Role: Admin, Remember me: False
+2025-11-08 21:33:47.092 Removing orphaned files...
+2025-11-08 21:33:47.288 Running script RerunData(page_script_hash='d5cb86e2bc732422aae221f3473d0820', 
+context_info=timezone: "Africa/Casablanca"
+timezone_offset: -60
+locale: "fr-MA"
+url: "http://localhost:8501/"
+is_embedded: false
+color_scheme: "light"
+)
+2025-11-08 21:33:47.288 Disconnecting files for session with ID a55b8215-1589-41ab-a288-77aa4338d124
+2025-11-08 21:33:47.288 Sessions still active: dict_keys([])
+2025-11-08 21:33:47.289 Files: 0; Sessions with files: 0
+2025-11-08 21:33:47.381 Removing orphaned files...
+2025-11-08 22:46:14.027 Runtime state: RuntimeState.ONE_OR_MORE_SESSIONS_CONNECTED -> 
+RuntimeState.NO_SESSIONS_CONNECTED

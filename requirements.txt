@@ -1,0 +1,36 @@
+# Core
+streamlit
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Database
+sqlalchemy>=2.0.0
+alembic>=1.12.0
+
+# Authentication & Security
+bcrypt>=4.0.0
+python-jose>=3.3.0
+python-dotenv>=1.0.0
+
+# Excel & Reporting
+openpyxl>=3.1.0
+xlsxwriter>=3.1.0
+
+# Visualization
+plotly>=5.15.0
+altair>=5.0.0
+NetworkX 3.4.1
+matplotlib
+
+# Utilities
+python-multipart>=0.0.6
+pydantic>=2.0.0
+
+
+psycopg2
+psycopg2-binary
+python-dateutil>=2.8.0 
+streamlit-option-menu>=0.3.0 
+streamlit-authenticator>=0.2.0 
+streamlit-extras>=0.3.0 
+

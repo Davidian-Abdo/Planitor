@@ -1,0 +1,24 @@
+"""
+User Registration Page
+"""
+import streamlit as st
+from frontend.components.auth.registration_form import registration_form_component
+
+st.set_page_config(
+    page_title="Register - Construction Planner",
+    page_icon="👤",
+    layout="centered"
+)
+
+def main():
+    st.title("👤 Create Account")
+    st.markdown("Join the Construction Project Planner platform")
+    
+    if registration_form_component():
+        st.balloons()
+        st.success("Account created successfully! You can now log in.")
+        if st.button("Go to Login"):
+            st.switch_page("pages/0_🔐_Login.py")
+
+if __name__ == "__main__":
+    main()
