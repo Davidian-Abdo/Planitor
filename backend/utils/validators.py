@@ -88,10 +88,10 @@ class Validator:
         # Username validation
         username = user_data.get('username')
         if username:
-            if len(username) < 3 or len(username) > 50:
-                errors.append("Username must be between 3 and 50 characters")
-            if not re.match(r'^[a-zA-Z0-9_]+$', username):
-                errors.append("Username can only contain letters, numbers, and underscores")
+            if len(username) < 3 or len(username) > 20:
+                errors.append("Username must be between 3 and 20 characters")
+            if not re.match(r'^[a-zA-Z0-9_.]+$', username):
+                errors.append("Username can only contain letters, numbers, and underscores(_) or ponts ( . )")
         
         # Email validation
         email = user_data.get('email')
@@ -114,15 +114,17 @@ class Validator:
         """Validate password strength"""
         errors = []
         
-        if len(password) < 8:
-            errors.append("Password must be at least 8 characters long")
-        if not re.search(r'[A-Z]', password):
+        if len(password) < 6:
+            errors.append("Password must be at least 6 characters long")
+        if len(password) > 20:
+            errors.append("Password must be less than 20 characters long")
+        #if not re.search(r'[A-Z]', password):
             errors.append("Password must contain at least one uppercase letter")
-        if not re.search(r'[a-z]', password):
+       # if not re.search(r'[a-z]', password):
             errors.append("Password must contain at least one lowercase letter")
         if not re.search(r'\d', password):
             errors.append("Password must contain at least one digit")
-        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+       # if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
             errors.append("Password must contain at least one special character")
         
         return errors
