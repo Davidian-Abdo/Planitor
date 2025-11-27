@@ -1,5 +1,5 @@
 """
-Template Context Manager for unified template state management - UPDATED
+FIXED Template Context Manager with proper initialization
 """
 
 import streamlit as st
@@ -10,14 +10,15 @@ logger = logging.getLogger(__name__)
 
 class TemplateContextManager:
     """
-    Professional template context manager for unified state management
-    UPDATED: Works with new service pattern from app.py
+    FIXED Professional template context manager with proper initialization
     """
     
     def __init__(self):
         self._observers: List[Callable] = []
-        
-        # Initialize session state for templates if not exists
+        self._ensure_initialized()
+    
+    def _ensure_initialized(self):
+        """Ensure template context is initialized in session state"""
         if 'template_context' not in st.session_state:
             st.session_state.template_context = {
                 'resource_template': None,
@@ -25,29 +26,36 @@ class TemplateContextManager:
                 'last_updated': None,
                 'initialized': False
             }
+            logger.info("✅ Template context initialized in session state")
     
     @property
     def resource_template(self) -> Optional[Dict[str, Any]]:
+        self._ensure_initialized()
         return st.session_state.template_context['resource_template']
     
     @resource_template.setter
     def resource_template(self, template: Optional[Dict[str, Any]]):
+        self._ensure_initialized()
         st.session_state.template_context['resource_template'] = template
         st.session_state.template_context['last_updated'] = 'resource'
         self._notify_observers()
     
     @property
     def task_template(self) -> Optional[Dict[str, Any]]:
+        self._ensure_initialized()
         return st.session_state.template_context['task_template']
     
     @task_template.setter
     def task_template(self, template: Optional[Dict[str, Any]]):
+        self._ensure_initialized()
         st.session_state.template_context['task_template'] = template
         st.session_state.template_context['last_updated'] = 'task'
         self._notify_observers()
     
     def get_current_context(self) -> Dict[str, Any]:
         """Get complete context with validation state"""
+        self._ensure_initialized()
+        
         context = {
             'resource_template': self.resource_template,
             'task_template': self.task_template,
@@ -64,10 +72,13 @@ class TemplateContextManager:
     
     def is_ready(self) -> bool:
         """Check if both resource and task templates are set."""
+        self._ensure_initialized()
         return bool(self.resource_template and self.task_template)
     
     def initialize_with_services(self, services: Dict[str, Any], user_id: int):
         """Initialize context with services from app.py"""
+        self._ensure_initialized()
+        
         try:
             if st.session_state.template_context.get('initialized'):
                 return
@@ -97,6 +108,7 @@ class TemplateContextManager:
     
     def clear_context(self):
         """Clear all template context"""
+        self._ensure_initialized()
         st.session_state.template_context = {
             'resource_template': None,
             'task_template': None,
@@ -138,6 +150,12 @@ class TemplateContextManager:
 
 # Global instance for easy access
 template_context = TemplateContextManager()
+
+def get_template_context() -> TemplateContextManager:
+    """Get the global template context instance"""
+    return template_context
+
+# ... rest of the file remains the same ...
 
 def get_template_context() -> TemplateContextManager:
     """Get the global template context instance"""

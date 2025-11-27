@@ -25,11 +25,11 @@ def assemble_files(file_paths, output_file):
 if __name__ == "__main__":
     # Example usage:
     files_to_copy = ["app.py",   
-             "pages/login.py",
-             "pages/register.py",
-             "frontend/components/forms/login_form.py",
-             "frontend/components/auth/registration_form.py",
-             "backend/db/session.py",
+          #   "pages/login.py",
+          #   "pages/register.py",
+          #   "frontend/components/forms/login_form.py",
+          #   "frontend/components/auth/registration_form.py",
+            # "backend/db/session.py",
              
 
             # "backend/db/base.py",
@@ -52,16 +52,16 @@ if __name__ == "__main__":
 #"backend/db/repositories/project_repo.py",
        #  "frontend/components/forms/project_forms.py",
         
-         # "frontend/pages/templates_manager.py",
-      #  "frontend/components/tabs/task_library.py",
-      # "frontend/components/tabs/resource_library.py",
-      #  "frontend/components/tabs/template_association.py",
-        # "backend/services/user_task_service.py", 
-        # "backend/services/template_service.py", 
-        # "backend/services/resource_service.py", 
-         #"backend/db/repositories/task_repo.py",
-         #"backend/db/repositories/resource_repo.py",
-
+          "frontend/pages/templates_manager.py",
+        "frontend/components/tabs/task_library.py",
+       "frontend/components/tabs/resource_library.py",
+        "frontend/components/tabs/template_association.py",
+         "backend/services/user_task_service.py", 
+         "backend/services/template_service.py", 
+         "backend/services/resource_service.py", 
+         "backend/db/repositories/task_repo.py",
+         "backend/db/repositories/resource_repo.py",
+         "frontend/helpers/template_context.py"
         #"frontend/pages/generate_schedule.py",
          # "backend/services/scheduling_service.py",
           # "backend/db/repositories/schedule_repo.py",

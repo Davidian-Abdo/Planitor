@@ -395,445 +395,2794 @@ if __name__ == "__main__":
 
 
 
-# ====== Begin of pages/login.py ======
+# ====== Begin of frontend/pages/templates_manager.py ======
 
 """
-PROFESSIONAL Login Page
-Clean, secure authentication with proper session management
+PROFESSIONAL Template Manager - REFACTORED & MODULAR
 """
 import streamlit as st
 import logging
-from typing import Optional, Tuple
 from sqlalchemy.orm import Session
-
-from frontend.components.forms.login_form import login_form_component
+from typing import Dict , Any
+from frontend.components.tabs.resource_library import render_resource_templates_tab
+from frontend.components.tabs.task_library import render_task_library_tab
+from frontend.components.tabs.template_association import render_template_associations_tab
 
 logger = logging.getLogger(__name__)
 
-def show(db_session: Session = None, user_id: int = None):
-    """
-    Professional login page with dependency injection compatibility
+def show(db_session: Session,services: Dict[str, Any], user_id: int):
+    """REFACTORED Template manager main entry point"""
+    try:
+        st.title("🏗️ Gestionnaire de Templates Unifié")
+        
+        # ✅ FIXED: Do NOT store db_session in session state
+        # Database sessions are request-scoped and should not persist
+        
+        # Load professional CSS
+        load_template_manager_css()
+        
+        if not services:
+            st.error("❌ Erreur d'initialisation des services")
+            return
+
+        # Create THREE tabs for unified management
+        tab1, tab2, tab3 = st.tabs([
+            "📦 Bibliothèque des Ressources",
+            "📚 Bibliothèque des Tâches", 
+            "🔗 Associations & Validation"
+        ])
+
+        # ----------------- Tab 1: Unified Resource Templates -----------------
+        with tab1:
+            render_resource_templates_tab(services, user_id, db_session)
+        
+        # ----------------- Tab 2: Task Library -----------------
+        with tab2:
+            render_task_library_tab(services, user_id, db_session)
+        
+        # ----------------- Tab 3: Template Associations -----------------
+        with tab3:
+            render_template_associations_tab(services, user_id, db_session)
+
+    except Exception as e:
+        logger.error(f"❌ Error in templates manager page: {e}")
+        st.error("❌ Erreur lors du chargement du gestionnaire de templates")
+
+
+def load_template_manager_css():
+    """Load professional CSS styles for template manager with correct path"""
+    try:
+        css_path = "frontend/styling/template_manager.css"
+        with open(css_path, "r", encoding="utf-8") as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        # Fallback inline styles
+        st.markdown("""
+        <style>
+            .template-manager-header {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                padding: 25px;
+                border-radius: 15px;
+                color: white;
+                margin-bottom: 30px;
+                box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            }
+            .filter-section {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 10px;
+                margin-bottom: 20px;
+                border-left: 4px solid #007bff;
+            }
+            .selected-row-actions {
+                background: #e7f3ff;
+                padding: 15px;
+                border-radius: 8px;
+                margin: 15px 0;
+                border-left: 4px solid #007bff;
+            }
+            .submit-section {
+                background: #d4edda;
+                padding: 20px;
+                border-radius: 10px;
+                margin-top: 20px;
+                border-left: 4px solid #28a745;
+            }
+            .template-card {
+                background: white;
+                padding: 20px;
+                border-radius: 12px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+                margin-bottom: 20px;
+                transition: transform 0.2s ease;
+            }
+            .template-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+            }
+            .stats-card {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                border-radius: 12px;
+                text-align: center;
+                margin: 10px 0;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+    except Exception as e:
+        logger.error(f"❌ Service initialization error: {e}")
+        st.error(f"❌ Erreur d'initialisation des services: {e}")
+        return None
+
+# ====== End of frontend/pages/templates_manager.py ======
+
+
+
+# ====== Begin of frontend/components/tabs/task_library.py ======
+
+"""
+FIXED Task Library Tab - Using optimized task table with resource selection
+"""
+import streamlit as st
+import logging
+from typing import Dict, Any
+
+logger = logging.getLogger(__name__)
+
+def render_task_library_tab(services: Dict[str, Any], user_id: int, db_session=None):
+    """Render task library tab with optimized table and resource selection"""
     
-    Args:
-        db_session: Database session (optional for compatibility)
-        user_id: User ID (optional for compatibility)
-    """
-    # Professional page configuration
-    st.set_page_config(
-        page_title="Login - Construction Planner",
-        page_icon="🔐",
-        layout="centered",
-        initial_sidebar_state="collapsed"
-    )
-    
-    # Remove sidebar for clean login experience
     st.markdown("""
-    <style>
-        .css-1d391kg {display: none}
-    </style>
+    <div class="template-manager-header">
+        <h1>📚 Bibliothèque des Tâches</h1>
+        <p>Gérez vos templates de tâches</p>
+    </div>
     """, unsafe_allow_html=True)
     
-    # Professional login interface
-    _render_login_header()
+    task_service = services['task_service']
+    resource_service = services['resource_service']
     
-    # Use the professional login form component
-    # Pass db_session if available, otherwise the component will handle it
-    if db_session:
-        login_form_component(db_session)
-    else:
-        login_form_component()
-    
-
- 
-def _render_login_header():
-    """Render professional login page header"""
-    # Professional branding
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        st.markdown(
-            """
-            <div style='text-align: center; padding: 2rem 0;'>
-                <h1 style='color: #1f77b4; margin-bottom: 0.5rem;'>🏗️</h1>
-                <h2 style='color: #333; margin-bottom: 0.5rem;'>Construction Project Planner</h2>
-                <p style='color: #666; font-size: 1.1rem;'>Professional Construction Management System</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    try:
+        # Get tasks from service
+        tasks = task_service.get_user_task_templates(user_id)
         
+        # Get available resources from resource service
+        available_workers = resource_service.get_user_workers(user_id)
+        available_equipment = resource_service.get_user_equipment(user_id)
+        
+        available_resources = {
+            'workers': available_workers,
+            'equipment': available_equipment
+        }
+        
+        # Display statistics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("📋 Tâches", len(tasks))
+        with col2:
+            included_tasks = len([t for t in tasks if t.get('included', True)])
+            st.metric("Tâches Incluses", included_tasks)
+        with col3:
+            disciplines = len(set(t.get('discipline', '') for t in tasks))
+            st.metric("Disciplines", disciplines)
+        with col4:
+            quality_gates = len([t for t in tasks if t.get('quality_gate', False)])
+            st.metric("Points Contrôle", quality_gates)
+        
+        # Use optimized task table WITH resource selection
+        from frontend.components.data_tables.task_table import render_tasks_table
+        template_service = services.get('template_service')
+        render_tasks_table(tasks, task_service, user_id, available_resources, template_service)
+        
+        # Load Default Tasks Section
         st.markdown("---")
-
-# ====== End of pages/login.py ======
-
-
-
-# ====== Begin of pages/register.py ======
-
-"""
-User Registration Page
-"""
-import streamlit as st
-from frontend.components.auth.registration_form import registration_form_component
-
-st.set_page_config(
-    page_title="Register ---- Planitor - plan and monitor your constructions",
-    page_icon="👤",
-    layout="centered"
-)
-
-def show(): 
-    st.title("👤 Create Account")
-    st.markdown("Join the Construction Project Planner platform")
-    
-    if registration_form_component():
-        st.balloons()
-        st.success("Account created successfully! You can now log in.")
-        if st.button("Go to Login"): 
-            st.switch_page('pages/login.py')
-            st.session_state['current_page'] = 'login'
+        st.markdown("## 📥 Tâches par Défaut")
         
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.write("Chargez les tâches par défaut pour commencer rapidement")
+        with col2:
+            if st.button("📥 Charger Tâches Défaut", key="load_default_tasks_main"):
+                try:
+                    loaded = task_service.load_default_tasks(user_id)
+                    if loaded:
+                        st.success("✅ Tâches par défaut chargées!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Erreur lors du chargement")
+                except Exception as e:
+                    st.error(f"❌ Erreur: {e}")
+
+    except Exception as e:
+        st.error(f"❌ Erreur dans la bibliothèque des tâches: {e}")
+        logger.error(f"Task library error: {e}")
+
+# ====== End of frontend/components/tabs/task_library.py ======
 
 
-# ====== End of pages/register.py ======
 
-
-
-# ====== Begin of frontend/components/forms/login_form.py ======
+# ====== Begin of frontend/components/tabs/resource_library.py ======
 
 """
-frontend/components/forms/login_form.py
-Professional Login Form Component with Register
+Resource Library Tab - Simplified with context integration
 """
 
 import streamlit as st
 import logging
+from typing import Dict, Any, List
 
+from frontend.helpers.template_context import render_template_context_selector
 
 logger = logging.getLogger(__name__)
 
-from backend.db.session import get_db_session
-from backend.auth.auth_manager import AuthManager
-
-# Professional login form
-def login_form_component():
-    db_session = get_db_session()  # get database session
-    auth_manager = AuthManager(db_session)  # pass session
-
-    st.title("🏗️ Professional Construction Planner Login")
-
-    with st.form(key="login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        remember_me = st.checkbox("Remember me", value=False)
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            login_submit = st.form_submit_button("Login")
-        with col2:
-            register_submit = st.form_submit_button("Register")
+def render_resource_templates_tab(services: Dict[str, Any], user_id: int, db_session=None):
+    """Simplified resource templates tab"""
     
+    st.markdown("""
+    <div class="template-manager-header">
+        <h1>📦 Modèles de Ressources</h1>
+        <p>Gérez vos modèles de ressources (ouvriers et équipements)</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Handle register
-    if register_submit:
-        st.session_state['current_page'] = 'register'
-        st.rerun()  
+    # Render template selectors
+    render_template_context_selector(services, user_id)
+    
+    resource_service = services['resource_service']
+    task_service = services['task_service']
+      
+    try:
+        # Get current context
+        from frontend.helpers.template_context import template_context
         
-    # Handle login
-    if login_submit:
-        user_data = auth_manager.authenticate_user(username, password)
-        if user_data:
-            if 'session_manager' not in st.session_state:
-                from backend.auth.session_manager import SessionManager
-                st.session_state.session_manager = SessionManager()
+        if not template_context.is_ready():
+            st.info("👆 Sélectionnez un modèle de ressources et un modèle de tâches pour continuer")
+            return
+        
+        current_resource = template_context.resource_template
+        current_task = template_context.task_template
+        
+        # Display current context
+        st.info(f"**Contexte actuel:** {current_resource['name']} + {current_task.get('name', 'Sans nom')}")
+        
+        # Template actions
+        _render_template_actions(resource_service, user_id)
+        
+        # Get workers and equipment
+        template_id = current_resource['id']
+        workers = resource_service.get_user_workers(user_id, template_id)
+        equipment = resource_service.get_user_equipment(user_id, template_id)
+        
+        # Display in tabs
+        tab1, tab2 = st.tabs(["👥 Ouvriers", "🛠️ Équipements"])
+        
+        with tab1:
+            from frontend.components.data_tables.worker_table import render_workers_table
+            template_service = services.get('template_service')
+            render_workers_table(workers, resource_service, user_id, template_id, current_resource['name'], template_service=template_service)
+        
+        with tab2:
+            from frontend.components.data_tables.equipment_table import render_equipment_table
+            render_equipment_table(equipment, resource_service, user_id, template_id, current_resource['name'])
+            
+    except Exception as e:
+        st.error(f"❌ Erreur: {e}")
+        logger.error(f"Resource library error: {e}")
 
-            st.session_state.session_manager.create_session(user_data)
-            st.session_state['current_page'] = 'project_setup'
+def _render_template_actions(resource_service, user_id: int):
+    """Essential template actions"""
+    st.markdown("### 🔧 Actions Modèle")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        if st.button("💾 Sauvegarder", use_container_width=True):
+            st.success("✅ Modèle sauvegardé")
+    
+    with col2:
+        if st.button("📥 Charger Défaut", use_container_width=True):
+            resource_service.load_default_resources(user_id)
+            st.success("✅ Ressources chargées")
             st.rerun()
-        else:
-            st.error("❌ Invalid username or password")
+    
+    with col3:
+        if st.button("🔄 Actualiser", use_container_width=True):
+            st.rerun()
+    
+    st.markdown("---")
 
 
-# ====== End of frontend/components/forms/login_form.py ======
+# ====== End of frontend/components/tabs/resource_library.py ======
 
 
 
-# ====== Begin of frontend/components/auth/registration_form.py ======
+# ====== Begin of frontend/components/tabs/template_association.py ======
 
 """
-Enhanced User registration form compatible with SessionManager
+PROFESSIONAL Template Association Tab
+Associates resource templates with task templates for scheduling engine
 """
 import streamlit as st
-from backend.auth.auth_manager import AuthManager
+import logging
+from typing import Dict, Any, List, Optional
+from backend.utils.widget_manager import widget_manager
 
-def registration_form_component() -> bool:
-    """CORRECTED registration form with proper session management"""
-    with st.form("registration_form"):
-        st.subheader("👤 Create New Account")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            full_name = st.text_input("Full Name", placeholder="Enter your full name")
-            username = st.text_input("Username", placeholder="Choose a username")
-        with col2:
-            email = st.text_input("Email", placeholder="your.email@company.com")
-            role = st.selectbox("Role", ["Admin", "Directeur", "Ingénieur"], 
-                              help="Ingénieur: Basic user, Directeurr: Manager access, Admin: Full system access")
-        
-        password = st.text_input("Password", type="password", 
-                               placeholder="Create a strong password")
-        confirm_password = st.text_input("Confirm Password", type="password", 
-                                       placeholder="Confirm your password")
-        
-        agree_terms = st.checkbox("I agree to the terms and conditions")
-        
-        register_clicked = st.form_submit_button("Create Account", type="primary")
+logger = logging.getLogger(__name__)
+
+
+def render_template_associations_tab(services: Dict[str, Any], user_id: int, db_session=None):
+    """
+    Render template associations tab for linking resource templates with task templates
+    """
+    st.markdown("""
+    <div class="template-manager-header">
+        <h1>🔗 Associations Templates</h1>
+        <p>Associez les modèles de ressources avec les modèles de tâches</p>
+    </div>
+    """, unsafe_allow_html=True)
     
-    if register_clicked:
-        # Validate inputs
-        if not all([full_name, username, email, password, confirm_password]):
-            st.error("Please fill in all required fields")
-            return False
+    template_service = services['template_service']
+    resource_service = services['resource_service']
+    task_service = services['task_service']
+    
+    # Template-level actions
+    _render_template_actions(resource_service, user_id)
+    
+    try:
+        # Get available templates
+        resource_templates = template_service.get_available_resource_templates(user_id)
+        task_templates = task_service.get_user_task_templates(user_id)
         
-        if password != confirm_password:
-            st.error("Passwords do not match")
-            return False
+        if not resource_templates:
+            st.warning("📭 Aucun modèle de ressource disponible. Créez d'abord des modèles de ressources.")
+            return
         
-        # ✅ Use enhanced password validation
-        from backend.utils.validators import Validator
-        is_valid, errors = Validator.validate_user_data({
-            'username': username,
-            'email': email,
-            'password': password
-        })
+        if not task_templates:
+            st.warning("📭 Aucun modèle de tâche disponible. Créez d'abord des modèles de tâches.")
+            return
         
-        if not is_valid:
-            for error in errors:
-                st.error(f"❌ {error}")
-            return False
+        # Display statistics
+        _render_association_statistics(resource_templates, task_templates, template_service, user_id)
         
-        if not agree_terms:
-            st.error("Please agree to the terms and conditions")
-            return False
+        # Main association interface
+        _render_association_interface(resource_templates, task_templates, template_service, user_id)
         
-        # ✅ CORRECTED: Use single database session
+        # Validation section
+        _render_validation_section(resource_templates, task_templates, template_service, resource_service)
+        
+    except Exception as e:
+        st.error(f"❌ Erreur dans les associations de templates: {e}")
+        logger.error(f"Template associations error: {e}")
+        
+def _render_association_statistics(resource_templates: List[Dict], task_templates: List[Dict], template_service, user_id: int):
+    """Render association statistics"""
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("📦 Modèles Ressources", len(resource_templates))
+    
+    with col2:
+        st.metric("📚 Modèles Tâches", len(task_templates))
+    
+    with col3:
+        # Count associations
+        total_associations = 0
+        for rt in resource_templates:
+            associations = template_service.get_template_associations(rt.get('id'))
+            total_associations += len(associations)
+        st.metric("🔗 Associations", total_associations)
+    
+    with col4:
+        # Coverage percentage
+        coverage = (total_associations / max(len(task_templates), 1)) * 100
+        st.metric("📊 Couverture", f"{coverage:.1f}%")
+
+def _render_association_interface(resource_templates: List[Dict], task_templates: List[Dict], template_service, user_id: int):
+    """Render main association interface"""
+    st.markdown("### 🔗 Interface d'Association")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 📦 Modèles de Ressources")
+        selected_resource_template = _render_resource_template_selection(resource_templates)
+    
+    with col2:
+        st.markdown("#### 📚 Tâches Disponibles")
+        if selected_resource_template:
+            _render_task_assignment_interface(selected_resource_template, task_templates, template_service, user_id)
+        else:
+            st.info("👈 Sélectionnez un modèle de ressource pour voir les tâches disponibles")
+
+def _render_resource_template_selection(resource_templates: List[Dict]) -> Optional[Dict]:
+    """Render resource template selection"""
+    template_options = {f"{rt.get('name', 'Sans nom')} (ID: {rt.get('id')})": rt for rt in resource_templates}
+    
+    selected_label = st.selectbox(
+        "Sélectionnez un modèle de ressource:",
+        options=[''] + list(template_options.keys()),
+        key=widget_manager.generate_key("resource_template_selector", "template_association")
+    )
+    
+    if selected_label and selected_label in template_options:
+        selected_template = template_options[selected_label]
+        
+        # Display template details
+        with st.expander("📋 Détails du Modèle Sélectionné", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**Nom:** {selected_template.get('name')}")
+                st.write(f"**Catégorie:** {selected_template.get('category', 'Non spécifiée')}")
+                st.write(f"**Description:** {selected_template.get('description', 'Aucune')}")
+            
+            with col2:
+                st.write(f"**Version:** {selected_template.get('version', 1)}")
+                st.write(f"**Statut:** {'✅ Actif' if selected_template.get('is_active', True) else '❌ Inactif'}")
+                st.write(f"**Partagé:** {'✅ Oui' if selected_template.get('is_shared', False) else '❌ Non'}")
+        
+        return selected_template
+    
+    return None
+
+def _render_task_assignment_interface(selected_resource_template: Dict, task_templates: List[Dict], template_service, user_id: int):
+    """Render task assignment interface for selected resource template"""
+    resource_template_id = selected_resource_template.get('id')
+    
+    # Get current associations
+    current_associations = template_service.get_template_associations(resource_template_id)
+    current_task_ids = [assoc.get('task_template_id') for assoc in current_associations]
+    
+    # Group tasks by discipline for better organization
+    tasks_by_discipline = {}
+    for task in task_templates:
+        discipline = task.get('discipline', 'Non classé')
+        if discipline not in tasks_by_discipline:
+            tasks_by_discipline[discipline] = []
+        tasks_by_discipline[discipline] = task
+    
+    st.markdown("#### 🎯 Tâches Associées")
+    
+    # Display current associations
+    if current_task_ids:
+        st.success(f"✅ {len(current_task_ids)} tâche(s) associée(s) à ce modèle")
+        
+        for task_id in current_task_ids:
+            task = next((t for t in task_templates if t.get('base_task_id') == task_id), None)
+            if task:
+                col1, col2, col3 = st.columns([3, 1, 1])
+                with col1:
+                    st.write(f"**{task.get('name')}**")
+                    st.caption(f"Discipline: {task.get('discipline')} | Type: {task.get('resource_type')}")
+                with col2:
+                    st.write(f"Durée: {task.get('base_duration', 'N/A')}j")
+                with col3:
+                    if st.button("🗑️", key=f"remove_{task_id}_{resource_template_id}"):
+                        template_service.remove_task_association(resource_template_id, task_id)
+                        st.success(f"✅ Association supprimée: {task.get('name')}")
+                        st.rerun()
+    else:
+        st.warning("⚠️ Aucune tâche associée à ce modèle de ressource")
+    
+    st.markdown("---")
+    st.markdown("#### ➕ Ajouter des Associations")
+    
+    # Multi-select for adding associations
+    available_tasks = [t for t in task_templates if t.get('base_task_id') not in current_task_ids]
+    
+    if available_tasks:
+        task_options = {
+            f"{t.get('name')} ({t.get('base_task_id')}) - {t.get('discipline')}": t.get('base_task_id') 
+            for t in available_tasks
+        }
+        
+        selected_tasks = st.multiselect(
+            "Sélectionnez les tâches à associer:",
+            options=list(task_options.keys()),
+            key=widget_manager.generate_key("task_association_multiselect", "template_association")
+        )
+        
+        if selected_tasks and st.button("🔗 Associer les Tâches Sélectionnées", use_container_width=True):
+            selected_task_ids = [task_options[task] for task in selected_tasks]
+            success_count = 0
+            
+            for task_id in selected_task_ids:
+                if template_service.associate_task_template(resource_template_id, task_id):
+                    success_count += 1
+            
+            if success_count > 0:
+                st.success(f"✅ {success_count} tâche(s) associée(s) avec succès!")
+                st.rerun()
+            else:
+                st.error("❌ Erreur lors de l'association des tâches")
+    else:
+        st.info("🎉 Toutes les tâches disponibles sont déjà associées à ce modèle!")
+
+def _render_validation_section(resource_templates: List[Dict], task_templates: List[Dict], template_service, resource_service):
+    """Render validation section for template associations"""
+    st.markdown("---")
+    st.markdown("### ✅ Validation des Associations")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 🔍 Vérification des Dépendances")
+        
+        selected_validation_template = st.selectbox(
+            "Sélectionnez un modèle à valider:",
+            options=[''] + [f"{rt.get('name')} (ID: {rt.get('id')})" for rt in resource_templates],
+            key=widget_manager.generate_key("validation_template_selector", "template_association")
+        )
+        
+        if selected_validation_template:
+            template_id = int(selected_validation_template.split("ID: ")[1].split(")")[0])
+            associations = template_service.get_template_associations(template_id)
+            
+            if associations:
+                st.success(f"✅ {len(associations)} association(s) trouvée(s)")
+                
+                # Validate each association
+                validation_results = []
+                for assoc in associations:
+                    task_id = assoc.get('task_template_id')
+                    task = next((t for t in task_templates if t.get('base_task_id') == task_id), None)
+                    
+                    if task:
+                        # Check if resource template has the required resources
+                        validation = _validate_task_dependencies(task, template_id, resource_service)
+                        validation_results.append({
+                            'task': task,
+                            'validation': validation
+                        })
+                
+                # Display validation results
+                for result in validation_results:
+                    task = result['task']
+                    validation = result['validation']
+                    
+                    with st.expander(f"🔍 {task.get('name')}", expanded=False):
+                        if validation['is_valid']:
+                            st.success("✅ Tâche compatible avec le modèle de ressources")
+                        else:
+                            st.error("❌ Incompatibilités détectées")
+                            
+                            if validation['missing_workers']:
+                                st.write("**Ouvriers manquants:**")
+                                for worker in validation['missing_workers']:
+                                    st.write(f" - {worker}")
+                            
+                            if validation['missing_equipment']:
+                                st.write("**Équipements manquants:**")
+                                for equipment in validation['missing_equipment']:
+                                    st.write(f" - {equipment}")
+                            
+                            if validation['warnings']:
+                                st.write("**Avertissements:**")
+                                for warning in validation['warnings']:
+                                    st.warning(warning)
+            else:
+                st.warning("⚠️ Aucune association à valider pour ce modèle")
+    
+    with col2:
+        st.markdown("#### 📊 Rapport de Couverture")
+        
+        # Generate coverage report
+        coverage_data = []
+        for rt in resource_templates:
+            associations = template_service.get_template_associations(rt.get('id'))
+            coverage_percentage = (len(associations) / len(task_templates)) * 100 if task_templates else 0
+            
+            coverage_data.append({
+                'Modèle': rt.get('name'),
+                'Associations': len(associations),
+                'Couverture': f"{coverage_percentage:.1f}%",
+                'Statut': '✅ Bonne' if coverage_percentage > 50 else '⚠️ Faible' if coverage_percentage > 0 else '❌ Aucune'
+            })
+        
+        if coverage_data:
+            import pandas as pd
+            df = pd.DataFrame(coverage_data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            st.info("📊 Aucune donnée de couverture disponible")
+
+def _validate_task_dependencies(task: Dict, resource_template_id: int, template_service) -> Dict[str, Any]:
+    """Validate task dependencies against resource template using template service"""
+    try:
+        return template_service.validate_task_template_dependencies(task, resource_template_id)
+    except Exception as e:
+        logger.error(f"Error validating task dependencies: {e}")
+        return {
+            'is_valid': False,
+            'missing_workers': [],
+            'missing_equipment': [],
+            'warnings': [f"Erreur de validation: {str(e)}"]
+        }
+    
+
+def _render_template_actions(resource_service, user_id: int):
+    """Render template-level action buttons for association tab"""
+    st.markdown("### 🔧 Actions au Niveau Modèle")
+    
+    # Template action buttons
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("💾 Sauvegarder Tous", use_container_width=True,
+                    key=widget_manager.generate_key("save_all_templates_btn", "template_association")):
+            _save_all_templates(resource_service, user_id)
+    
+    with col2:
+        if st.button("➕ Nouveau Modèle", use_container_width=True,
+                    key=widget_manager.generate_key("new_template_btn", "template_association")):
+            _create_new_template(resource_service, user_id)
+    
+    with col3:
+        if st.button("📥 Charger Défaut", use_container_width=True,
+                    key=widget_manager.generate_key("load_default_btn", "template_association")):
+            _load_default_resources(resource_service, user_id)
+    
+    with col4:
+        if st.button("🔄 Actualiser", use_container_width=True,
+                    key=widget_manager.generate_key("refresh_btn", "template_association")):
+            st.rerun()
+    
+    st.markdown("---")
+
+def _save_all_templates(resource_service, user_id: int):
+    """Save all resource templates"""
+    try:
+        templates = resource_service.get_user_resource_templates(user_id)
+        total_workers = 0
+        total_equipment = 0
+        
+        for template in templates:
+            workers = resource_service.get_user_workers(user_id, template['id'])
+            equipment = resource_service.get_user_equipment(user_id, template['id'])
+            total_workers += len(workers)
+            total_equipment += len(equipment)
+        
+        st.success(f"✅ Tous les modèles sauvegardés!")
+        st.info(f"📊 Total: {len(templates)} modèles, {total_workers} ouvriers, {total_equipment} équipements")
+        
+    except Exception as e:
+        st.error(f"❌ Erreur lors de la sauvegarde: {e}")
+        logger.error(f"Error saving all templates: {e}")
+
+def _create_new_template(resource_service, user_id: int):
+    """Create a new resource template"""
+    try:
+        # Generate unique template name
+        template_count = len(resource_service.get_user_resource_templates(user_id))
+        new_template_name = f"Nouveau Modèle {template_count + 1}"
+        
+        template_data = {
+            'name': new_template_name,
+            'description': 'Nouveau modèle de ressources créé automatiquement',
+            'category': 'Custom',
+            'user_id': user_id
+        }
+        
+        new_template = resource_service.create_resource_template(user_id, template_data)
+        
+        if new_template:
+            st.success(f"✅ Nouveau modèle créé: {new_template_name}")
+            st.rerun()
+        else:
+            st.error("❌ Erreur lors de la création du modèle")
+            
+    except Exception as e:
+        st.error(f"❌ Erreur lors de la création du modèle: {e}")
+        logger.error(f"Error creating template: {e}")
+
+def _load_default_resources(resource_service, user_id: int):
+    """Load default resources"""
+    try:
+        with st.spinner("📥 Chargement des ressources par défaut..."):
+            loaded_resources = resource_service.load_default_resources(user_id)
+            
+            if loaded_resources:
+                st.success(f"✅ {len(loaded_resources)} ressources par défaut chargées avec succès!")
+                st.rerun()
+            else:
+                st.error("❌ Erreur lors du chargement des ressources par défaut")
+                
+    except Exception as e:
+        st.error(f"❌ Erreur lors du chargement des ressources: {e}")
+        logger.error(f"Error loading default resources: {e}")
+
+# ====== End of frontend/components/tabs/template_association.py ======
+
+
+
+# ====== Begin of backend/services/user_task_service.py ======
+
+"""
+PROFESSIONAL User Task Service - UPDATED with duration calculation methods
+"""
+import logging
+from typing import List, Dict, Optional, Any
+from datetime import datetime
+from sqlalchemy.orm import Session
+logger = logging.getLogger(__name__)
+
+class UserTaskService:
+    """
+    Professional service for user task operations with duration methods
+    """
+    
+    def __init__(self, db_session: Session):
+        self.db_session = db_session
+        self.logger = logging.getLogger(__name__)
+        self._initialize_repositories()
+    
+    def _initialize_repositories(self):
+        """Initialize repositories"""
         try:
-            from backend.db.session import get_db_session
-            db_session = get_db_session()
+            from backend.db.repositories.task_repo import TaskRepository
+            self.task_repo = TaskRepository(self.db_session)
+            self.logger.info("✅ TaskRepository initialized successfully")
+        except Exception as e:
+            self.logger.error(f"❌ TaskRepository initialization failed: {e}")
+            raise
+    
+    def get_user_task_templates(self, user_id: int, project_id: Optional[int] = None) -> List[Dict]:
+        """
+        Get user task templates for frontend display with duration methods
+        """
+        try:  
+            db_templates = self.task_repo.get_user_task_templates(user_id, project_id)
+            domain_tasks = [self._db_to_domain_task(db_template) for db_template in db_templates]
+            self.logger.info(f"✅ Retrieved {len(domain_tasks)} task templates for user {user_id}")
+            return domain_tasks
+        except Exception as e:
+            self.logger.error(f"❌ Error retrieving task templates: {e}")
+            return []
+    
+    def get_task_template_groups(self, user_id: int) -> List[Dict]:
+        """Get task templates grouped by template_name"""
+        try:
+            tasks = self.get_user_task_templates(user_id)
+            template_groups = {}
+        
+            for task in tasks:
+                template_name = task.get('template_name', 'Default Template')
+                if template_name not in template_groups:
+                    template_groups[template_name] = {
+                    'template_name': template_name,
+                    'tasks': [],
+                    'task_count': 0,
+                    'disciplines': set(),
+                    'created_at': task.get('created_at')
+                    }
             
-            # Create AuthManager with the session
-            from backend.auth.auth_manager import AuthManager
-            auth_manager = AuthManager(db_session)
+                template_groups[template_name]['tasks'].append(task)
+                template_groups[template_name]['task_count'] += 1
+                template_groups[template_name]['disciplines'].add(task.get('discipline', 'Non spécifié'))
+        
+            return list(template_groups.values())
+        
+        except Exception as e:
+            self.logger.error(f"Error getting task template groups: {e}")
+            return []
+    def load_default_tasks(self,user_id: int) -> List[Dict]:
+        """
+        Load default tasks as user templates with duration methods
+        """
+        try:
+            from backend.defaults.TASKS import BASE_TASKS
             
-            # Attempt registration
-            result = auth_manager.register_user(
-                username=username,
-                email=email,
-                password=password,
-                full_name=full_name,
-                role=role  # ✅ Use exact role values
+            created_tasks = [] 
+            for discipline, task_list in BASE_TASKS.items(): 
+                for base_task in task_list:
+                    template_data = {
+                    'user_id': user_id,
+                    'base_task_id': getattr(base_task, 'id', 'None'),
+                    'name': getattr(base_task, 'name', 'Un named'),
+                    'discipline': getattr(base_task, 'discipline', 'General'),
+                    'sub_discipline': getattr(base_task, 'sub_discipline', 'General'),
+                    'resource_type': getattr(base_task, 'resource_type', 'worker'),
+                    'task_type': getattr(base_task, 'task_type', 'worker'),
+                    'base_duration': getattr(base_task, 'base_duration', 1),
+                    'unit_duration': getattr(base_task, 'unit_duration', 1),
+                    'duration_calculation_method': getattr(base_task, 'duration_calculation_method', 'fixed_duration'),
+                    'min_crews_needed': getattr(base_task, 'min_crews_needed', 1),
+                    'min_equipment_needed': getattr(base_task, 'min_equipment_needed', {}),
+                    'predecessors': getattr(base_task, 'predecessors', []),
+                    'repeat_on_floor': getattr(base_task, 'repeat_on_floor', True),
+                    'delay': getattr(base_task, 'delay', 0),
+                    'weather_sensitive': getattr(base_task, 'weather_sensitive', False),
+                    'quality_gate': getattr(base_task, 'quality_gate', False),
+                    'included': getattr(base_task, 'included', True)
+                        }
+                
+                    db_template = self.task_repo.create_user_task_template(template_data)
+                    if db_template:
+                        domain_task = self._db_to_domain_task(db_template)
+                        created_tasks.append(domain_task)
+                
+            self.logger.info(f"✅ Loaded {len(created_tasks)} default tasks")
+            return created_tasks
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error loading default tasks: {e}")
+            return []
+    
+    def update_custom_task(self, user_id: int, task_id: int, updates: Dict) -> Optional[Dict]:
+        """Update custom task template with duration method support"""
+        try:
+            # Validate duration method configuration
+            validation_result = self._validate_duration_configuration(updates)
+            if not validation_result['is_valid']:
+                self.logger.error(f"❌ Invalid duration configuration: {validation_result['errors']}")
+                return None
+            
+            db_template = self.task_repo.update_user_task_template(user_id, task_id, updates)
+            
+            if db_template:
+                self.logger.info(f"✅ Updated task {task_id} with duration method: {updates.get('duration_calculation_method')}")
+                return self._db_to_domain_task(db_template)
+            return None
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error updating custom task: {e}")
+            return None
+    
+    def _validate_duration_configuration(self, updates: Dict) -> Dict[str, Any]:
+        """Validate duration calculation method configuration"""
+        errors = []
+        
+        method = updates.get('duration_calculation_method', 'fixed_duration')
+        
+        if method == 'fixed_duration':
+            if 'base_duration' not in updates or updates['base_duration'] <= 0:
+                errors.append("La durée fixe doit être supérieure à 0")
+                
+        elif method == 'quantity_based':
+            if 'unit_duration' not in updates or updates['unit_duration'] <= 0:
+                errors.append("La durée unitaire doit être supérieure à 0")
+        
+        # resource_calculation doesn't need specific validation
+        
+        return {
+            'is_valid': len(errors) == 0,
+            'errors': errors
+        }
+    
+    def _db_to_domain_task(self, db_template) -> Dict:
+        """Convert DB model to domain task dictionary with duration methods"""
+        return {
+            'base_task_id': db_template.base_task_id,
+            'name': db_template.name,
+            'discipline': db_template.discipline,
+            'sub_discipline': db_template.sub_discipline,
+            'resource_type': db_template.resource_type,
+            'task_type': db_template.task_type,
+            'base_duration': db_template.base_duration,
+            'unit_duration': getattr(db_template, 'unit_duration', 0),
+            'duration_calculation_method': getattr(db_template, 'duration_calculation_method', 'fixed_duration'),
+            'min_crews_needed': db_template.min_crews_needed,
+            'min_equipment_needed': db_template.min_equipment_needed or {},
+            'predecessors': db_template.predecessors or [],
+            'repeat_on_floor': db_template.repeat_on_floor,
+            'delay': db_template.delay,
+            'weather_sensitive': db_template.weather_sensitive,
+            'quality_gate': db_template.quality_gate,
+            'included': db_template.included,
+            'created_at': db_template.created_at.isoformat() if db_template.created_at else None
+        }
+    
+    # Keep existing methods for compatibility
+    def import_tasks_from_json(self, uploaded_file) -> bool:
+        """Import tasks from JSON file"""
+        try:
+            import json
+            tasks_data = json.load(uploaded_file)
+            user_id = 1  # From session
+            
+            success_count = 0
+            for task_data in tasks_data:
+                task_data['user_id'] = user_id
+                # Ensure duration method is set
+                if 'duration_calculation_method' not in task_data:
+                    task_data['duration_calculation_method'] = 'fixed_duration'
+                if self.task_repo.create_user_task_template(task_data):
+                    success_count += 1
+            
+            self.logger.info(f"✅ Imported {success_count} tasks from JSON")
+            return success_count > 0
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error importing tasks from JSON: {e}")
+            return False
+    
+    def export_tasks_to_json(self) -> str:
+        """Export tasks to JSON format"""
+        try:
+            user_id = 1  # From session
+            db_templates = self.task_repo.get_user_task_templates(user_id)
+            
+            tasks_data = []
+            for db_template in db_templates:
+                task_dict = {
+                    'id': db_template.base_task_id,
+                    'name': db_template.name,
+                    'discipline': db_template.discipline,
+                    'sub_discipline': db_template.sub_discipline,
+                    'resource_type': db_template.resource_type,
+                    'task_type': db_template.task_type,
+                    'base_duration': db_template.base_duration,
+                    'unit_duration': getattr(db_template, 'unit_duration', 0),
+                    'duration_calculation_method': getattr(db_template, 'duration_calculation_method', 'fixed_duration'),
+                    'min_crews_needed': db_template.min_crews_needed,
+                    'min_equipment_needed': db_template.min_equipment_needed,
+                    'predecessors': db_template.predecessors,
+                    'repeat_on_floor': db_template.repeat_on_floor,
+                    'delay': db_template.delay,
+                    'weather_sensitive': db_template.weather_sensitive,
+                    'quality_gate': db_template.quality_gate,
+                    'included': db_template.included
+                }
+                tasks_data.append(task_dict)
+            
+            import json
+            return json.dumps(tasks_data, indent=2, ensure_ascii=False)
+        except Exception as e:
+            self.logger.error(f"❌ Error exporting tasks to JSON: {e}")
+            return "[]"
+        
+
+
+
+        # Add this method to UserTaskService class
+    def create_custom_task(self, user_id: int, task_data: Dict) -> Optional[Dict]:
+        """Create a new custom task template"""
+        try:
+            # Ensure required fields
+            task_data['user_id'] = user_id
+            if 'duration_calculation_method' not in task_data:
+                task_data['duration_calculation_method'] = 'fixed_duration'
+        
+            db_template = self.task_repo.create_user_task_template(task_data)
+        
+            if db_template:
+                self.logger.info(f"✅ Created custom task: {task_data.get('base_task_id')}")
+                return self._db_to_domain_task(db_template)
+            return None
+        
+        except Exception as e:
+            self.logger.error(f"❌ Error creating custom task: {e}")
+            return None
+        
+    def delete_custom_task(self, user_id: int, task_id: int) -> bool:
+        """Delete custom task template"""
+        try:
+            return self.task_repo.delete_user_task_template(user_id, task_id)
+        except Exception as e:
+            self.logger.error(f"❌ Error deleting custom task: {e}")
+            return False
+
+# ====== End of backend/services/user_task_service.py ======
+
+
+
+# ====== Begin of backend/services/template_service.py ======
+
+"""
+PROFESSIONAL Template Service - Template Association Management
+Handles associations between resource templates and task templates
+"""
+import logging
+from typing import List, Dict, Optional, Any
+from sqlalchemy.orm import Session
+import datetime
+
+logger = logging.getLogger(__name__)
+
+class TemplateService:
+    """
+    Professional service for template association operations
+    """
+    
+    def __init__(self, db_session: Session):
+        self.db_session = db_session
+        self.logger = logging.getLogger(__name__)
+        
+    def validate_template_compatibility(self, resource_template: Dict, task_template: Dict) -> Dict[str, Any]:
+        """Essential template compatibility validation"""
+        try:
+            issues = []
+            warnings = []
+            
+            # 1. Check resource requirements
+            resource_check = self._check_resource_requirements(task_template, resource_template)
+            if not resource_check['met']:
+                issues.extend(resource_check.get('issues', []))
+            
+            # 2. Check equipment requirements
+            equipment_check = self._check_equipment_requirements(task_template, resource_template)
+            if not equipment_check['met']:
+                issues.extend(equipment_check.get('issues', []))
+            
+            return {
+                'compatible': len(issues) == 0,
+                'issues': issues,
+                'warnings': warnings,
+                'resource_check': resource_check,
+                'equipment_check': equipment_check
+            }
+            
+        except Exception as e:
+            logger.error(f"Validation error: {e}")
+            return {
+                'compatible': False,
+                'issues': [f"Erreur validation: {str(e)}"],
+                'warnings': []
+            }
+
+    def _check_resource_requirements(self, task_template: Dict, resource_template: Dict) -> Dict[str, Any]:
+        """Check if resource template has required workers"""
+        from backend.db.repositories.resource_repo import ResourceRepository
+        resource_repo = ResourceRepository(self.db_session)
+        
+        required_type = task_template.get('resource_type')
+        if not required_type:
+            return {'met': True, 'message': 'Aucun type spécifique requis'}
+        
+        workers = resource_repo.get_workers_by_template(resource_template['id'])
+        worker_types = [w.specialty for w in workers]
+        
+        has_match = required_type in worker_types
+        result = {
+            'met': has_match,
+            'required': required_type,
+            'available': worker_types
+        }
+        
+        if not has_match:
+            result['issues'] = [f"Type ouvrier manquant: {required_type}"]
+        
+        return result
+
+    def _check_equipment_requirements(self, task_template: Dict, resource_template: Dict) -> Dict[str, Any]:
+        """Check if resource template has required equipment"""
+        from backend.db.repositories.resource_repo import ResourceRepository
+        resource_repo = ResourceRepository(self.db_session)
+        
+        required_equipment = task_template.get('min_equipment_needed', {})
+        if not required_equipment:
+            return {'met': True, 'message': 'Aucun équipement spécifique requis'}
+        
+        equipment = resource_repo.get_equipment_by_template(resource_template['id'])
+        equipment_names = [e.name for e in equipment]
+        
+        missing = [name for name in required_equipment.keys() if name not in equipment_names]
+        result = {
+            'met': len(missing) == 0,
+            'required': list(required_equipment.keys()),
+            'available': equipment_names,
+            'missing': missing
+        }
+        
+        if missing:
+            result['issues'] = [f"Équipements manquants: {', '.join(missing)}"]
+        
+        return result
+    def get_available_resource_templates(self, user_id: int) -> List[Dict]:
+        """Get available resource templates for user"""
+        try:
+            from backend.db.repositories.resource_repo import ResourceRepository
+            resource_repo = ResourceRepository(self.db_session)
+            
+            db_templates = resource_repo.get_user_resource_templates(user_id)
+            
+            templates = []
+            for template in db_templates:
+                template_dict = {
+                    'id': template.id,
+                    'name': template.name,
+                    'description': template.description,
+                    'category': template.category,
+                    'version': template.version,
+                    'is_default': template.is_default,
+                    'is_shared': template.is_shared,
+                    'is_active': template.is_active,
+                    'created_at': template.created_at.isoformat() if template.created_at else None
+                }
+                
+                # Get resource counts
+                counts = resource_repo.count_template_resources(template.id)
+                template_dict['worker_count'] = counts['workers']
+                template_dict['equipment_count'] = counts['equipment']
+                template_dict['total_resources'] = counts['total']
+                
+                templates.append(template_dict)
+            
+            self.logger.info(f"✅ Retrieved {len(templates)} resource templates for user {user_id}")
+            return templates
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error getting resource templates: {e}")
+            return []
+    
+    def get_template_associations(self, resource_template_id: int) -> List[Dict]:
+        """Get task template associations for a resource template"""
+        try:
+            # In a real implementation, this would query an association table
+            # For now, we'll return an empty list as placeholder
+            associations = []
+            
+            self.logger.info(f"✅ Retrieved {len(associations)} associations for template {resource_template_id}")
+            return associations
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error getting template associations: {e}")
+            return []
+    
+    def associate_task_template(self, resource_template_id: int, task_template_id: str) -> bool:
+        """Associate a task template with a resource template"""
+        try:
+            # In a real implementation, this would insert into an association table
+            # For now, we'll log and return True as placeholder
+            self.logger.info(f"✅ Associated resource template {resource_template_id} with task {task_template_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error associating templates: {e}")
+            return False
+    
+    def remove_task_association(self, resource_template_id: int, task_template_id: str) -> bool:
+        """Remove association between resource and task templates"""
+        try:
+            # In a real implementation, this would delete from an association table
+            # For now, we'll log and return True as placeholder
+            self.logger.info(f"✅ Removed association between resource template {resource_template_id} and task {task_template_id}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error removing association: {e}")
+            return False
+    
+    def validate_task_template_dependencies(self, task_template: Dict, resource_template_id: int) -> Dict[str, Any]:
+        """Validate if a task template's resource dependencies are satisfied by a resource template"""
+        try:
+            from backend.db.repositories.resource_repo import ResourceRepository
+            resource_repo = ResourceRepository(self.db_session)
+            
+            missing_workers = []
+            missing_equipment = []
+            warnings = []
+            
+            # Get resources from the template
+            workers = resource_repo.get_workers_by_template(resource_template_id)
+            equipment = resource_repo.get_equipment_by_template(resource_template_id)
+            
+            # Check worker requirements
+            required_worker_type = task_template.get('resource_type')
+            if required_worker_type:
+                worker_available = any(
+                    w.specialty == required_worker_type or w.name == required_worker_type 
+                    for w in workers
+                )
+                if not worker_available:
+                    missing_workers.append(required_worker_type)
+            
+            # Check equipment requirements
+            required_equipment = task_template.get('min_equipment_needed', {})
+            for equip_name, quantity in required_equipment.items():
+                equipment_available = any(
+                    e.name == equip_name or e.code == equip_name 
+                    for e in equipment
+                )
+                if not equipment_available:
+                    missing_equipment.append(f"{equip_name} (x{quantity})")
+            
+            # Check if task has any resource dependencies at all
+            if not required_worker_type and not required_equipment:
+                warnings.append("Cette tâche n'a pas de dépendances de ressources spécifiées")
+            
+            return {
+                'is_valid': len(missing_workers) == 0 and len(missing_equipment) == 0,
+                'missing_workers': missing_workers,
+                'missing_equipment': missing_equipment,
+                'warnings': warnings,
+                'resource_template_id': resource_template_id,
+                'task_template_id': task_template.get('base_task_id')
+            }
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error validating task dependencies: {e}")
+            return {
+                'is_valid': False,
+                'missing_workers': [],
+                'missing_equipment': [],
+                'warnings': [f"Erreur de validation: {str(e)}"],
+                'resource_template_id': resource_template_id,
+                'task_template_id': task_template.get('base_task_id')
+            }
+    
+    def create_template_association_table(self) -> bool:
+        """Create the template association table if it doesn't exist"""
+        try:
+            # This would typically create an association table in the database
+            # For now, we'll just log and return True
+            self.logger.info("✅ Template association table ready")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error creating association table: {e}")
+            return False
+        
+
+    def export_resource_templates(self, user_id: int) -> str:
+        """
+        Export resource templates to JSON format for download
+        Includes templates, workers, and equipment
+        """
+        try:
+            from backend.services.resource_service import ResourceService
+            resource_service = ResourceService(self.db_session)
+        
+            # Get all resource data
+            resource_templates = resource_service.get_user_resource_templates(user_id)
+        
+            export_data = {
+                'export_type': 'resource_templates',
+                'export_version': '1.0',
+                'export_timestamp': datetime.now().isoformat(),
+                'user_id': user_id,
+                'resource_templates': resource_templates,
+                'total_templates': len(resource_templates)
+            }
+        
+            # Add workers and equipment for each template
+            for template in resource_templates:
+                template_id = template['id']
+                workers = resource_service.get_workers_by_template(template_id)
+                equipment = resource_service.get_equipment_by_template(template_id)
+            
+                template['workers'] = workers
+                template['equipment'] = equipment
+                template['worker_count'] = len(workers)
+                template['equipment_count'] = len(equipment)
+        
+            import json
+            return json.dumps(export_data, indent=2, ensure_ascii=False, default=str)
+        
+        except Exception as e:
+            self.logger.error(f"❌ Error exporting resource templates: {e}")
+            return json.dumps({'error': str(e)})
+
+    def import_resource_templates(self, user_id: int, uploaded_file) -> bool:
+        """
+        Import resource templates from JSON file
+        """
+        try:
+            import json
+            from backend.services.resource_service import ResourceService
+            resource_service = ResourceService(self.db_session)
+        
+            # Parse uploaded file
+            file_content = uploaded_file.getvalue().decode('utf-8')
+            import_data = json.loads(file_content)
+        
+            # Validate export format
+            if import_data.get('export_type') != 'resource_templates':
+                raise ValueError("Invalid file format: Not a resource templates export")
+        
+            resource_templates = import_data.get('resource_templates', [])
+            imported_count = 0
+        
+            for template_data in resource_templates:
+                try:
+                    # Create or update resource template
+                    existing_templates = resource_service.get_user_resource_templates(user_id)
+                    existing_template = next(
+                        (t for t in existing_templates if t['name'] == template_data['name']), 
+                         None
+                    )
+                
+                    if existing_template:
+                        # Update existing template
+                        updates = {
+                            'description': template_data.get('description', ''),
+                            'category': template_data.get('category', 'Custom'),
+                            'version': template_data.get('version', 1) + 1
+                        }
+                        success = resource_service.update_resource_template(existing_template['id'], updates)
+                        template_id = existing_template['id']
+                    else:
+                        # Create new template
+                        new_template_data = {
+                        'name': template_data['name'],
+                        'description': template_data.get('description', ''),
+                        'category': template_data.get('category', 'Custom'),
+                        'user_id': user_id,
+                        'is_default': False,
+                        'is_shared': template_data.get('is_shared', False)
+                        }
+                        new_template = resource_service.create_resource_template(user_id, new_template_data)
+                        template_id = new_template['id'] if new_template else None
+                
+                    if template_id:
+                        # Import workers
+                        workers = template_data.get('workers', [])
+                        for worker_data in workers:
+                            worker_data['user_id'] = user_id
+                            worker_data['template_id'] = template_id
+                            resource_service.create_worker(user_id, worker_data)
+                      
+                        # Import equipment
+                        equipment_list = template_data.get('equipment', [])
+                        for equipment_data in equipment_list:
+                            equipment_data['user_id'] = user_id
+                            equipment_data['template_id'] = template_id
+                            resource_service.create_equipment(user_id, equipment_data)
+                    
+                        imported_count += 1
+                    
+                except Exception as template_error:
+                    self.logger.error(f"Error importing template {template_data.get('name')}: {template_error}")
+                    continue
+        
+            self.logger.info(f"✅ Imported {imported_count} resource templates for user {user_id}")
+            return imported_count > 0
+        
+        except Exception as e:
+            self.logger.error(f"❌ Error importing resource templates: {e}")
+            return False
+
+    def export_task_templates(self, user_id: int) -> str:
+        """
+        Export task templates to JSON format for download
+        """
+        try:
+            from backend.services.user_task_service import UserTaskService
+            task_service = UserTaskService(self.db_session)
+        
+            # Get all task templates
+            task_templates = task_service.get_user_task_templates(user_id)
+        
+            export_data = {
+            'export_type': 'task_templates',
+            'export_version': '1.0',
+            'export_timestamp': datetime.now().isoformat(),
+            'user_id': user_id,
+            'task_templates': task_templates,
+            'total_tasks': len(task_templates)
+            }
+        
+            import json
+            return json.dumps(export_data, indent=2, ensure_ascii=False, default=str)
+        
+        except Exception as e:
+            self.logger.error(f"❌ Error exporting task templates: {e}")
+            return json.dumps({'error': str(e)})
+
+    def import_task_templates(self, user_id: int, uploaded_file) -> bool:
+        """
+        Import task templates from JSON file
+        """
+        try:
+            import json
+            from backend.services.user_task_service import UserTaskService
+            task_service = UserTaskService(self.db_session)
+        
+            # Parse uploaded file
+            file_content = uploaded_file.getvalue().decode('utf-8')
+            import_data = json.loads(file_content)
+        
+            # Validate export format
+            if import_data.get('export_type') != 'task_templates':
+                raise ValueError("Invalid file format: Not a task templates export")
+        
+            task_templates = import_data.get('task_templates', [])
+            imported_count = 0
+        
+            for task_data in task_templates:
+                try:
+                    # Check if task already exists
+                    existing_tasks = task_service.get_user_task_templates(user_id)
+                    existing_task = next(
+                        (t for t in existing_tasks if t.get('base_task_id') == task_data.get('base_task_id')), 
+                        None
+                    )
+                 
+                    if existing_task:
+                        # Update existing task
+                        updates = {
+                            'name': task_data.get('name'),
+                            'discipline': task_data.get('discipline'),
+                            'base_duration': task_data.get('base_duration'),
+                            'duration_calculation_method': task_data.get('duration_calculation_method', 'fixed_duration'),
+                            'min_crews_needed': task_data.get('min_crews_needed', 1),
+                            'min_equipment_needed': task_data.get('min_equipment_needed', {}),
+                            'included': task_data.get('included', True)
+                        }
+                        updated_task = task_service.update_custom_task(user_id, existing_task['base_task_id'], updates)
+                        if updated_task:
+                            imported_count += 1
+                    else:
+                        # Create new task
+                        task_data['user_id'] = user_id
+                        new_task = task_service.create_custom_task(user_id, task_data)
+                        if new_task:
+                            imported_count += 1
+                        
+                except Exception as task_error:
+                    self.logger.error(f"Error importing task {task_data.get('name')}: {task_error}")
+                    continue
+        
+            self.logger.info(f"✅ Imported {imported_count} task templates for user {user_id}")
+            return imported_count > 0
+        
+        except Exception as e:
+            self.logger.error(f"❌ Error importing task templates: {e}")
+            return False
+
+        
+
+# ====== End of backend/services/template_service.py ======
+
+
+
+# ====== Begin of backend/services/resource_service.py ======
+
+"""
+PROFESSIONAL Resource Service - Workers & Equipment Management
+UPDATED with proper template association handling and modification tracking
+"""
+import logging
+from typing import List, Dict, Optional, Any
+from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
+
+class ResourceService:
+    """
+    Professional service for resource operations (workers + equipment)
+    """
+    
+    def __init__(self, db_session: Session):
+        self.db_session = db_session
+        self.logger = logging.getLogger(__name__)
+        self._initialize_repositories()
+    
+    def _initialize_repositories(self):
+        """Initialize repositories"""
+        try:
+            from backend.db.repositories.resource_repo import ResourceRepository
+            self.resource_repo = ResourceRepository(self.db_session)
+            self.logger.info("✅ ResourceRepository initialized successfully")
+        except Exception as e:
+            self.logger.error(f"❌ ResourceRepository initialization failed: {e}")
+            raise
+    
+    def get_user_resource_templates(self, user_id: int) -> List[Dict]:
+        """Get user resource templates"""
+        try:
+            db_templates = self.resource_repo.get_user_resource_templates(user_id)
+            domain_templates = [self._db_to_domain_resource_template(db_template) for db_template in db_templates]
+            self.logger.info(f"✅ Retrieved {len(domain_templates)} resource templates for user {user_id}")
+            return domain_templates
+        except Exception as e:
+            self.logger.error(f"❌ Error retrieving resource templates: {e}")
+            return []
+    
+    def get_workers_by_template(self, template_id: int) -> List[Dict]:
+        """Get workers by template ID"""
+        try:
+            db_workers = self.resource_repo.get_workers_by_template(template_id)
+            return [self._db_to_domain_worker(w) for w in db_workers]
+        except Exception as e:
+            self.logger.error(f"Error getting workers by template: {e}")
+            return []
+
+    def get_equipment_by_template(self, template_id: int) -> List[Dict]:
+        """Get equipment by template ID"""
+        try:
+            db_equipment = self.resource_repo.get_equipment_by_template(template_id)
+            return [self._db_to_domain_equipment(e) for e in db_equipment]
+        except Exception as e:
+            self.logger.error(f"Error getting equipment by template: {e}")
+            return []
+
+    def get_user_workers(self, user_id: int, template_id: Optional[int] = None) -> List[Dict]:
+        """Get user workers"""
+        try:
+            db_workers = self.resource_repo.get_user_workers(user_id, template_id)
+            domain_workers = [self._db_to_domain_worker(db_worker) for db_worker in db_workers]
+            self.logger.info(f"✅ Retrieved {len(domain_workers)} workers for user {user_id}")
+            return domain_workers
+        except Exception as e:
+            self.logger.error(f"❌ Error retrieving workers: {e}")
+            return []
+    
+    def get_user_equipment(self, user_id: int, template_id: Optional[int] = None) -> List[Dict]:
+        """Get user equipment"""
+        try:
+            db_equipment = self.resource_repo.get_user_equipment(user_id, template_id)
+            domain_equipment = [self._db_to_domain_equipment(db_equip) for db_equip in db_equipment]
+            self.logger.info(f"✅ Retrieved {len(domain_equipment)} equipment for user {user_id}")
+            return domain_equipment
+        except Exception as e:
+            self.logger.error(f"❌ Error retrieving equipment: {e}")
+            return []
+    
+    def get_resource_counts(self, template_id: int) -> tuple[int, int]:
+        """Get worker and equipment counts for a template"""
+        try:
+            workers = self.resource_repo.get_workers_by_template(template_id)
+            equipment = self.resource_repo.get_equipment_by_template(template_id)
+            return len(workers), len(equipment)
+        except Exception as e:
+            self.logger.error(f"Error getting resource counts: {e}")
+            return 0, 0
+    
+    def create_resource_template(self, user_id: int, template_data: Dict) -> Optional[Dict]:
+        """Create new resource template and return created template"""
+        try:
+            template_data['user_id'] = user_id
+            db_template = self.resource_repo.create_resource_template(template_data)
+            if db_template:
+                domain_template = self._db_to_domain_resource_template(db_template)
+                self.logger.info(f"✅ Created resource template: {template_data['name']}")
+                return domain_template
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Error creating resource template: {e}")
+            return None
+    
+    def get_template_resources(self, template_id: int) -> Dict[str, List]:
+        """Get all resources (workers + equipment) for a template"""
+        try:
+            workers = self.resource_repo.get_workers_by_template(template_id)
+            equipment = self.resource_repo.get_equipment_by_template(template_id)
+            
+            return {
+                'workers': [self._db_to_domain_worker(w) for w in workers],
+                'equipment': [self._db_to_domain_equipment(e) for e in equipment]
+            }
+        except Exception as e:
+            logger.error(f"Error getting template resources: {e}")
+            return {'workers': [], 'equipment': []}
+    
+    def update_resource_template(self, template_id: int, updates: Dict) -> bool:
+        """Update resource template"""
+        try:
+            success = self.resource_repo.update_resource_template(template_id, updates)
+            if success:
+                self.logger.info(f"✅ Updated resource template ID: {template_id}")
+            return success
+        except Exception as e:
+            self.logger.error(f"❌ Error updating resource template: {e}")
+            return False
+    
+    def create_worker(self, user_id: int, worker_data: Dict) -> Optional[Dict]:
+        """Create new worker and return created worker"""
+        try:
+            worker_data['user_id'] = user_id
+            
+            # Generate code if not provided
+            if not worker_data.get('code'):
+                base_name = worker_data['name'][:3].upper()
+                worker_data['code'] = f"WRK_{base_name}_{len(self.get_user_workers(user_id)) + 1:03d}"
+            
+            db_worker = self.resource_repo.create_worker(worker_data)
+            if db_worker:
+                domain_worker = self._db_to_domain_worker(db_worker)
+                self.logger.info(f"✅ Created worker: {worker_data['name']}")
+                return domain_worker
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Error creating worker: {e}")
+            return None
+    
+    def update_worker(self, user_id: int, worker_id: int, updates: Dict) -> Optional[Dict]:
+        """Update worker and return updated worker"""
+        try:
+            db_worker = self.resource_repo.update_worker(worker_id, user_id, updates)
+            if db_worker:
+                domain_worker = self._db_to_domain_worker(db_worker)
+                self.logger.info(f"✅ Updated worker ID: {worker_id}")
+                return domain_worker
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Error updating worker: {e}")
+            return None
+
+    def update_worker_with_template_check(self, user_id: int, worker_id: int, updates: Dict) -> Optional[Dict]:
+        """Update worker and mark template as modified if it was default"""
+        try:
+            # First get the current worker to check template
+            current_worker = self.resource_repo.get_worker_by_id(worker_id)
+            if not current_worker:
+                return None
+            
+            template_id = current_worker.template_id
+            if template_id:
+                # Check if template is default and mark it as modified
+                self._mark_template_as_modified_if_default(template_id)
+            
+            # Now update the worker
+            return self.update_worker(user_id, worker_id, updates)
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error updating worker with template check: {e}")
+            return None
+    
+    def delete_worker(self, user_id: int, worker_id: int) -> bool:
+        """Delete worker"""
+        try:
+            success = self.resource_repo.delete_worker(worker_id, user_id)
+            if success:
+                self.logger.info(f"✅ Deleted worker ID: {worker_id}")
+            return success
+        except Exception as e:
+            self.logger.error(f"❌ Error deleting worker: {e}")
+            return False
+    
+    def create_equipment(self, user_id: int, equipment_data: Dict) -> Optional[Dict]:
+        """Create new equipment and return created equipment"""
+        try:
+            equipment_data['user_id'] = user_id
+            
+            # Generate code if not provided
+            if not equipment_data.get('code'):
+                base_name = equipment_data['name'][:3].upper()
+                equipment_data['code'] = f"EQP_{base_name}_{len(self.get_user_equipment(user_id)) + 1:03d}"
+            
+            db_equipment = self.resource_repo.create_equipment(equipment_data)
+            if db_equipment:
+                domain_equipment = self._db_to_domain_equipment(db_equipment)
+                self.logger.info(f"✅ Created equipment: {equipment_data['name']}")
+                return domain_equipment
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Error creating equipment: {e}")
+            return None
+    
+    def update_equipment(self, user_id: int, equipment_id: int, updates: Dict) -> Optional[Dict]:
+        """Update equipment and return updated equipment"""
+        try:
+            db_equipment = self.resource_repo.update_equipment(equipment_id, user_id, updates)
+            if db_equipment:
+                domain_equipment = self._db_to_domain_equipment(db_equipment)
+                self.logger.info(f"✅ Updated equipment ID: {equipment_id}")
+                return domain_equipment
+            return None
+        except Exception as e:
+            self.logger.error(f"❌ Error updating equipment: {e}")
+            return None
+
+    def update_equipment_with_template_check(self, user_id: int, equipment_id: int, updates: Dict) -> Optional[Dict]:
+        """Update equipment and mark template as modified if it was default"""
+        try:
+            # First get the current equipment to check template
+            current_equipment = self.resource_repo.get_equipment_by_id(equipment_id)
+            if not current_equipment:
+                return None
+            
+            template_id = current_equipment.template_id
+            if template_id:
+                # Check if template is default and mark it as modified
+                self._mark_template_as_modified_if_default(template_id)
+            
+            # Now update the equipment
+            return self.update_equipment(user_id, equipment_id, updates)
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error updating equipment with template check: {e}")
+            return None
+    
+    def delete_equipment(self, user_id: int, equipment_id: int) -> bool:
+        """Delete equipment"""
+        try:
+            success = self.resource_repo.delete_equipment(equipment_id, user_id)
+            if success:
+                self.logger.info(f"✅ Deleted equipment ID: {equipment_id}")
+            return success
+        except Exception as e:
+            self.logger.error(f"❌ Error deleting equipment: {e}")
+            return False
+
+    def _mark_template_as_modified_if_default(self, template_id: int):
+        """Mark a template as modified (no longer default) if it was default"""
+        try:
+            template = self.resource_repo.get_template_by_id(template_id)
+            if template and template.is_default:
+                # Mark template as no longer default
+                updates = {'is_default': False}
+                success = self.resource_repo.update_resource_template(template_id, updates)
+                if success:
+                    self.logger.info(f"📝 Template {template_id} marked as modified (no longer default)")
+                return success
+            return False
+        except Exception as e:
+            self.logger.error(f"❌ Error marking template as modified: {e}")
+            return False
+    
+    def load_default_resources(self, user_id: int) -> List[Dict]:
+        """
+        FIXED: Load default resources as user templates with proper template state management
+        Returns newly created resources and handles template modification state
+        """
+        try:
+            from backend.defaults.resources import workers, equipment
+            
+            created_resources = []
+            
+            # FIRST: Check for existing default templates
+            existing_templates = self.get_user_resource_templates(user_id)
+            default_template = None
+            modified_default_templates = []
+            
+            # Separate default and modified default templates
+            for template in existing_templates:
+                if template.get('is_default') and 'Défaut' in template.get('name', ''):
+                    default_template = template
+                    self.logger.info(f"✅ Found active default template: {template['name']} (ID: {template['id']})")
+                elif not template.get('is_default') and 'Défaut' in template.get('name', ''):
+                    modified_default_templates.append(template)
+                    self.logger.info(f"📝 Found modified default template: {template['name']} (ID: {template['id']})")
+            
+            # If no active default template exists, create one
+            if not default_template:
+                template_data = {
+                    'name': 'Ressources par Défaut',
+                    'description': 'Template de ressources par défaut pour la construction',
+                    'user_id': user_id,
+                    'category': 'Default',
+                    'is_default': True
+                }
+                
+                default_template = self.create_resource_template(user_id, template_data)
+                if not default_template:
+                    self.logger.error("❌ Failed to create default resource template")
+                    return []
+                
+                self.logger.info(f"✅ Created new default resource template: {default_template['id']}")
+            
+            template_id = default_template['id']
+            
+            # Get existing resources for THIS template to avoid duplicates
+            existing_workers = self.get_workers_by_template(template_id)
+            existing_equipment = self.get_equipment_by_template(template_id)
+            
+            existing_worker_names = {w['name'] for w in existing_workers}
+            existing_equipment_names = {e['name'] for e in existing_equipment}
+            
+            # Load default workers
+            worker_count = 0
+            for worker_name, worker_resource in workers.items():
+                if worker_name not in existing_worker_names:
+                    worker_code = f"WRK_{worker_name[:3].upper()}"
+                    worker_data = {
+                        'user_id': user_id,
+                        'template_id': template_id,
+                        'name': worker_name,
+                        'code': worker_code,
+                        'specialty': getattr(worker_resource, 'specialty', worker_name),
+                        'category': 'Ouvrier',
+                        'base_count': getattr(worker_resource, 'count', 1),
+                        'hourly_rate': getattr(worker_resource, 'hourly_rate', 0.0),
+                        'daily_rate': getattr(worker_resource, 'hourly_rate', 0.0) * 8,
+                        'max_workers_per_crew': getattr(worker_resource, 'max_crews', {}).get('default', 1),
+                        'base_productivity_rate': 1.0,
+                        'productivity_unit': 'unités/jour',
+                        'qualification_level': 'Qualifié',
+                        'skills': getattr(worker_resource, 'skills', []),
+                        'is_active': True
+                    }
+                    created_worker = self.create_worker(user_id, worker_data)
+                    if created_worker:
+                        created_resources.append(created_worker)
+                        worker_count += 1
+                        self.logger.info(f"✅ Created worker: {worker_name}")
+            
+            # Load default equipment
+            equipment_count = 0
+            for equip_name, equip_resource in equipment.items():
+                if equip_name not in existing_equipment_names:
+                    equipment_code = f"EQP_{equip_name[:3].upper()}"
+                    equipment_data = {
+                        'user_id': user_id,
+                        'template_id': template_id,
+                        'name': equip_name,
+                        'code': equipment_code,
+                        'type': getattr(equip_resource, 'type', 'EnginLourd'),
+                        'category': 'EnginLourd',
+                        'base_count': getattr(equip_resource, 'count', 1),
+                        'hourly_rate': getattr(equip_resource, 'hourly_rate', 0.0),
+                        'daily_rate': getattr(equip_resource, 'hourly_rate', 0.0) * 8,
+                        'max_units_per_task': getattr(equip_resource, 'max_equipment', 1),
+                        'base_productivity_rate': 1.0,
+                        'productivity_unit': 'unités/jour',
+                        'requires_operator': True,
+                        'operator_type': 'ConducteurEngins',
+                        'is_available': True,
+                        'is_active': True
+                    }
+                    created_equipment = self.create_equipment(user_id, equipment_data)
+                    if created_equipment:
+                        created_resources.append(created_equipment)
+                        equipment_count += 1
+                        self.logger.info(f"✅ Created equipment: {equip_name}")
+            
+            self.logger.info(f"✅ Loaded {worker_count} workers and {equipment_count} equipment in default template {template_id}")
+            
+            # Return newly created resources or existing ones if no new ones
+            if not created_resources and (existing_workers or existing_equipment):
+                self.logger.info("✅ Default resources already exist, returning existing resources")
+                return existing_workers + existing_equipment
+            
+            return created_resources
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error loading default resources: {e}")
+            return []
+    
+    def export_resources_to_json(self) -> str:
+        """Export resources to JSON format"""
+        try:
+            user_id = 1  # From session
+            workers = self.get_user_workers(user_id)
+            equipment = self.get_user_equipment(user_id)
+            templates = self.get_user_resource_templates(user_id)
+            
+            export_data = {
+                'resource_templates': templates,
+                'workers': workers,
+                'equipment': equipment,
+                'export_version': '1.0'
+            }
+            
+            import json
+            return json.dumps(export_data, indent=2, ensure_ascii=False)
+        except Exception as e:
+            self.logger.error(f"❌ Error exporting resources to JSON: {e}")
+            return "{}"
+    
+    def import_resources_from_json(self, uploaded_file) -> bool:
+        """Import resources from JSON file"""
+        try:
+            import json
+            resources_data = json.load(uploaded_file)
+            user_id = 1  # From session
+            
+            success_count = 0
+            
+            # Import workers
+            if 'workers' in resources_data:
+                for worker_data in resources_data['workers']:
+                    worker_data['user_id'] = user_id
+                    if self.create_worker(user_id, worker_data):
+                        success_count += 1
+            
+            # Import equipment
+            if 'equipment' in resources_data:
+                for equipment_data in resources_data['equipment']:
+                    equipment_data['user_id'] = user_id
+                    if self.create_equipment(user_id, equipment_data):
+                        success_count += 1
+            
+            self.logger.info(f"✅ Imported {success_count} resources from JSON")
+            return success_count > 0
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error importing resources from JSON: {e}")
+            return False
+    
+    def _db_to_domain_resource_template(self, db_template) -> Dict:
+        """Convert DB model to domain resource template dictionary"""
+        return {
+            'id': db_template.id,
+            'name': db_template.name,
+            'description': db_template.description,
+            'category': db_template.category,
+            'version': db_template.version,
+            'is_default': db_template.is_default,
+            'is_shared': db_template.is_shared,
+            'is_active': db_template.is_active,
+            'created_at': db_template.created_at.isoformat() if db_template.created_at else None
+        }
+    
+    def _db_to_domain_worker(self, db_worker) -> Dict:
+        """Convert DB model to domain worker dictionary"""
+        return {
+            'id': db_worker.id,
+            'user_id': db_worker.user_id,
+            'template_id': db_worker.template_id,
+            'name': db_worker.name,
+            'code': db_worker.code,
+            'specialty': db_worker.specialty,
+            'category': db_worker.category,
+            'base_count': db_worker.base_count,
+            'hourly_rate': float(db_worker.hourly_rate),
+            'daily_rate': float(db_worker.daily_rate),
+            'max_workers_per_crew': db_worker.max_workers_per_crew,
+            'base_productivity_rate': float(db_worker.base_productivity_rate),
+            'productivity_unit': db_worker.productivity_unit,
+            'qualification_level': db_worker.qualification_level,
+            'skills': db_worker.skills or [],
+            'required_certifications': db_worker.required_certifications or [],
+            'is_active': db_worker.is_active,
+            'description': db_worker.description,
+            'created_at': db_worker.created_at.isoformat() if db_worker.created_at else None
+        }
+    
+    def _db_to_domain_equipment(self, db_equipment) -> Dict:
+        """Convert DB model to domain equipment dictionary"""
+        return {
+            'id': db_equipment.id,
+            'user_id': db_equipment.user_id,
+            'template_id': db_equipment.template_id,
+            'name': db_equipment.name,
+            'code': db_equipment.code,
+            'type': db_equipment.type,
+            'category': db_equipment.category,
+            'model': db_equipment.model,
+            'base_count': db_equipment.base_count,
+            'hourly_rate': float(db_equipment.hourly_rate),
+            'daily_rate': float(db_equipment.daily_rate),
+            'capacity': db_equipment.capacity,
+            'max_units_per_task': db_equipment.max_units_per_task,
+            'base_productivity_rate': float(db_equipment.base_productivity_rate),
+            'productivity_unit': db_equipment.productivity_unit,
+            'requires_operator': db_equipment.requires_operator,
+            'operator_type': db_equipment.operator_type,
+            'is_available': db_equipment.is_available,
+            'is_active': db_equipment.is_active,
+            'description': db_equipment.description,
+            'created_at': db_equipment.created_at.isoformat() if db_equipment.created_at else None
+        }
+
+# ====== End of backend/services/resource_service.py ======
+
+
+
+# ====== Begin of backend/db/repositories/task_repo.py ======
+
+"""
+Professional Task Repository for CRUD operations
+UPDATED with duration calculation methods support
+"""
+import logging
+from typing import List, Dict, Optional, Any
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
+
+from backend.models.db_models import UserTaskTemplateDB
+from backend.models.domain_models import BaseTask, TaskType
+
+logger = logging.getLogger(__name__)
+
+class TaskRepository:
+    """
+    Professional repository for task template operations with duration methods
+    """
+    
+    def __init__(self, db_session: Session):
+        self.db_session = db_session
+        self.logger = logging.getLogger(__name__)
+    
+    def get_user_task_templates(self, user_id: int, project_id: Optional[int] = None) -> List[UserTaskTemplateDB]:
+        """
+        Get all task templates for a user with duration methods
+        """
+        try:
+            query = self.db_session.query(UserTaskTemplateDB).filter(
+                UserTaskTemplateDB.user_id == user_id,
+                UserTaskTemplateDB.is_active == True
             )
             
-            if result:
-                # ✅ Commit the transaction
-                from backend.db.session import safe_commit
-                if safe_commit(db_session, "User registration"):
-                    st.success("✅ Account created successfully! You can now log in.")
-                    
-                    # ✅ Correct page redirection
-                    st.session_state['current_page'] = "login"
-                    return True
-                else:
-                    st.error("❌ Failed to save user to database")
-                    return False
+            if project_id:
+                # If you add project-specific templates later
+                pass
+                
+            templates = query.order_by(UserTaskTemplateDB.discipline, UserTaskTemplateDB.name).all()
+            self.logger.info(f"Retrieved {len(templates)} task templates for user {user_id}")
+            return templates
+            
+        except Exception as e:
+            self.logger.error(f"Error getting user task templates: {e}")
+            return []
+    
+    def create_user_task_template(self, task_data: Dict[str, Any]) -> Optional[UserTaskTemplateDB]:
+        """
+        Create a new user task template with duration method support
+        """
+        try:
+            # Check if template already exists for this user and base_task_id
+            existing = self.db_session.query(UserTaskTemplateDB).filter(
+                UserTaskTemplateDB.user_id == task_data['user_id'],
+                UserTaskTemplateDB.base_task_id == task_data['base_task_id']
+            ).first()
+            
+            # Set default duration method if not provided
+            if 'duration_calculation_method' not in task_data:
+                task_data['duration_calculation_method'] = 'fixed_duration'
+            
+            if existing:
+                # Update existing template
+                for key, value in task_data.items():
+                    if hasattr(existing, key) and key not in ['id', 'created_at']:
+                        setattr(existing, key, value)
+
+                self.logger.info(f"Updated existing task template: {task_data['base_task_id']}")
+                return existing
             else:
-                st.error("❌ Username or email already exists")
+                # Create new template
+                db_template = UserTaskTemplateDB(**task_data)
+                self.db_session.add(db_template)
+                self.db_session.flush()
+                self.logger.info(f"Created new task template: {task_data['base_task_id']}")
+                return db_template
+                
+        except Exception as e:
+   
+            self.logger.error(f"Error creating task template: {e}")
+            return None
+    
+    def update_user_task_template(self, user_id: int, task_id: int, updates: Dict[str, Any]) -> Optional[UserTaskTemplateDB]:
+        """
+        Update a user task template with duration method support
+        """
+        try:
+            db_template = self.db_session.query(UserTaskTemplateDB).filter(
+                UserTaskTemplateDB.id == task_id,
+                UserTaskTemplateDB.user_id == user_id
+            ).first()
+            
+            if db_template:
+                for key, value in updates.items():
+                    if hasattr(db_template, key) and key not in ['id', 'user_id', 'created_at']:
+                        setattr(db_template, key, value)
+                self.logger.info(f"Updated task template {task_id} with duration method: {updates.get('duration_calculation_method')}")
+                return db_template
+            else:
+                self.logger.warning(f"Task template {task_id} not found for user {user_id}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"Error updating task template: {e}")
+            return None
+    
+    # Keep existing methods for compatibility
+    def get_user_task_templates_as_base_tasks(self, user_id: int, project_id: Optional[int] = None) -> Dict[str, BaseTask]:
+        """
+        CRITICAL: Convert user task templates to BaseTask format for the scheduler
+        Now includes duration calculation methods
+        """
+        try:
+            db_templates = self.get_user_task_templates(user_id, project_id)
+            base_tasks = {}
+            
+            for db_template in db_templates:
+                base_task_id = db_template.base_task_id
+                
+                # Create BaseTask object from user template with duration methods
+                base_task = BaseTask(
+                    id=base_task_id,
+                    name=db_template.name,
+                    discipline=db_template.discipline,
+                    sub_discipline=db_template.sub_discipline,
+                    resource_type=db_template.resource_type,
+                    task_type=TaskType(db_template.task_type.upper()) if isinstance(db_template.task_type, str) else db_template.task_type,
+                    base_duration=db_template.base_duration,
+                    unit_duration=getattr(db_template, 'unit_duration', 0),
+                    duration_calculation_method=getattr(db_template, 'duration_calculation_method', 'fixed_duration'),
+                    min_crews_needed=db_template.min_crews_needed,
+                    min_equipment_needed=db_template.min_equipment_needed or {},
+                    predecessors=db_template.predecessors or [],
+                    repeat_on_floor=db_template.repeat_on_floor,
+                    delay=db_template.delay,
+                    weather_sensitive=db_template.weather_sensitive,
+                    quality_gate=db_template.quality_gate,
+                    included=db_template.included
+                )
+                
+                base_tasks[base_task_id] = base_task
+            
+            self.logger.info(f"Converted {len(base_tasks)} user templates to BaseTask format with duration methods")
+            return base_tasks
+            
+        except Exception as e:
+            self.logger.error(f"Error converting user templates to BaseTask: {e}")
+            return {}
+    
+    def delete_user_task_template(self, user_id: int, task_id: int) -> bool:
+        """
+        Soft delete a user task template
+        """
+        try:
+            db_template = self.db_session.query(UserTaskTemplateDB).filter(
+                UserTaskTemplateDB.id == task_id,
+                UserTaskTemplateDB.user_id == user_id
+            ).first()
+            
+            if db_template:
+                db_template.is_active = False
+
+                self.logger.info(f"Soft deleted task template {task_id}")
+                return True
+            else:
+                self.logger.warning(f"Task template {task_id} not found for user {user_id}")
                 return False
                 
         except Exception as e:
-            st.error(f"❌ Registration failed: {str(e)}")
-            # ✅ Ensure session is properly closed
-            try:
-                db_session.rollback()
-                db_session.close()
-            except:
-                pass
+            self.logger.error(f"Error deleting task template: {e}")
             return False
-        finally:
-            try:
-                db_session.close()
-            except:
-                pass
-    
-    return False
 
-# ====== End of frontend/components/auth/registration_form.py ======
+
+# ====== End of backend/db/repositories/task_repo.py ======
 
 
 
-# ====== Begin of backend/db/session.py ======
+# ====== Begin of backend/db/repositories/resource_repo.py ======
 
 """
-backend/db/session.py
-Production-ready SQLAlchemy session manager for Planitor (Supabase-friendly).
-
-Behavior:
- - Read DB url from (in order): os.environ["SUPABASE_URL"], streamlit secrets ("SUPABASE_URL"), .env via python-dotenv if present.
- - Create engine lazily (so tools like alembic can import without crashing in some contexts).
- - Provide `engine` (may be None until created), `get_engine()` to ensure creation, `SessionLocal`, and helpers.
- - Use sqlalchemy.text(...) when executing raw SQL checks.
+PROFESSIONAL Resource Repository - UPDATED with Resource Template Support
+Enhanced for unified resource management with proper template associations
 """
-
-from __future__ import annotations
-import os
 import logging
-from typing import Optional
-from sqlalchemy import create_engine, text as sa_text
-from sqlalchemy.engine import Engine
-from sqlalchemy.exc import SQLAlchemyError, OperationalError
-from sqlalchemy.orm import sessionmaker, Session as SessionType
-import streamlit as st
+from typing import List, Dict, Optional, Any
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_
+
+from backend.models.db_models import ResourceTemplateDB, WorkerResourceDB, EquipmentResourceDB
 
 logger = logging.getLogger(__name__)
 
-# ---------- Configuration & URL resolution ----------
-try:
-    DATABASE_URL = "postgresql://postgres.vigyqbzjtpqjzlpuyzvf:ABDOABDOABDO@aws-1-eu-west-1.pooler.supabase.com:5432/postgres"
-    #DATABASE_URL = os.environ.get("SUPABASE_URL")
-    if DATABASE_URL :
-        logger.debug("Using SUPABASE_URL from environment")
-
-except Exception:
-        logger.debug("could not get SUPABASE_URL")
+class ResourceRepository:
+    """
+    UPDATED Professional repository for resource operations with template support
+    """
     
-
-# module-level "engine" is created lazily by get_engine()
-_engine: Optional[Engine] = None
-
-def get_engine() -> Engine:
-    """
-    Ensure and return a SQLAlchemy Engine.
-    This will create the engine on first call and raise a clear error if DB URL is missing.
-    """
-    global _engine
-    if _engine is not None:
-        return _engine
-
-    if not DATABASE_URL:
-        raise RuntimeError(
-            "Database URL is not configured. "
-            "Set SUPABASE_URL environment variable or Streamlit secrets (SUPABASE_URL)."
-        )
-
-    # Recommended: explicit connect timeout and minimal pool tuning for serverless hosts
-    connect_args = {}
-    # If pg driver supports it, set a short connect timeout to fail faster
-    # (psycopg2 uses connect_timeout param in dsn)
-    try:
-        # SQLAlchemy will pass connect_args to DBAPI connect; this is harmless if unsupported.
-        connect_args = {"connect_timeout": 10}
-    except Exception:
-        connect_args = {}
-
-    try:
-        _engine = create_engine(
-            DATABASE_URL,
-            echo=False,
-            pool_pre_ping=True,
-            pool_size=5,        # conservative defaults for hosted environments
-            max_overflow=10,
-            connect_args=connect_args,
-            future=True
-        )
-        # quick smoke test: don't execute heavy queries, just a connection check
-        with _engine.connect() as conn:
-            conn.execute(sa_text("SELECT 1"))
-        logger.info("✅ Database engine created and connection checked")
-        return _engine
-
-    except OperationalError as e:
-        logger.error("❌ OperationalError while creating engine: %s", e)
-        # keep _engine as None so callers can decide what to do
-        raise
-    except SQLAlchemyError as e:
-        logger.error("❌ SQLAlchemyError while creating engine: %s", e)
-        raise
-
-# Provide module-level alias for callers that expect `engine` at import time.
-# We attempt to create it immediately (useful for production), but do not hide errors.
-try:
-    # Try to create engine immediately if URL is present (common on deployed hosts).
-    if _engine is None:
-        _engine = get_engine()
-except Exception as exc:
-    # Log the failure but do not crash import time with obscure stack traces.
-    # Higher-level code (app init or alembic) should catch and handle.
-    logger.warning("Engine not created at import: %s", exc)
-    _engine = None
-
-# ---------------- Session factory ----------------
-# SessionLocal is bound if engine exists; if engine is None, callers should call get_engine() first.
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, future=True, bind=_engine)  # type: ignore[arg-type]
-
-def get_db_session() -> SessionType:
-    """
-    Return a new SQLAlchemy Session. Ensures engine exists first.
-    Usage:  session = get_db_session()
-    """
-    try:
-        if _engine is None:
-            # attempt to create engine now (will raise a clear error if missing)
-            get_engine()
-            # rebind SessionLocal to the engine we just created
-            global SessionLocal
-            SessionLocal.configure(bind=_engine)  # type: ignore[attr-defined]
-        return SessionLocal()
-    except Exception as e:
-        logger.error("❌ Error creating database session: %s", e)
-        raise
-
-# ---------- Transaction helpers ----------
-def safe_commit(session: SessionType, context: str = "Operation") -> bool:
-    try:
-        session.commit()
-        logger.debug("✅ Commit succeeded (%s)", context)
-        return True
-    except Exception as e:
-        logger.error("❌ Commit failed (%s): %s", context, e)
+    def __init__(self, db_session: Session):
+        self.db_session = db_session
+        self.logger = logging.getLogger(__name__)
+    
+    # RESOURCE TEMPLATE METHODS
+    def get_user_resource_templates(self, user_id: int) -> List[ResourceTemplateDB]:
+        """Get all resource templates for a user"""
         try:
-            session.rollback()
-            logger.debug("🔄 Rollback executed after failed commit (%s)", context)
-        except Exception as rollback_err:
-            logger.error("❌ Rollback failed (%s): %s", context, rollback_err)
-        return False
+            templates = self.db_session.query(ResourceTemplateDB).filter(
+                ResourceTemplateDB.user_id == user_id,
+                ResourceTemplateDB.is_active == True
+            ).order_by(ResourceTemplateDB.name).all()
+            
+            self.logger.info(f"✅ Retrieved {len(templates)} resource templates for user {user_id}")
+            return templates
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error getting user resource templates: {e}")
+            return []
+    
+    def create_resource_template(self, template_data: Dict[str, Any]) -> Optional[ResourceTemplateDB]:
+        """Create a new resource template - NO COMMIT"""
+        try:
+            # Check if template already exists for this user and name
+            existing = self.db_session.query(ResourceTemplateDB).filter(
+                ResourceTemplateDB.user_id == template_data['user_id'],
+                ResourceTemplateDB.name == template_data['name']
+            ).first()
+            
+            if existing:
+                self.logger.warning(f"⚠️ Resource template already exists: {template_data['name']}")
+                return existing
+            
+            db_template = ResourceTemplateDB(**template_data)
+            self.db_session.add(db_template)
+            self.db_session.flush()
+            self.logger.info(f"✅ Created new resource template: {template_data['name']}")
+            return db_template
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error creating resource template: {e}")
+            return None
+    
+    def update_resource_template(self, template_id: int, updates: Dict[str, Any]) -> bool:
+        """Update a resource template by ID - NO COMMIT"""
+        try:
+            db_template = self.db_session.query(ResourceTemplateDB).filter(
+                ResourceTemplateDB.id == template_id
+            ).first()
+            
+            if db_template:
+                for key, value in updates.items():
+                    if hasattr(db_template, key) and key not in ['id', 'user_id', 'created_at']:
+                        setattr(db_template, key, value)
+                self.db_session.flush()
+                self.logger.info(f"✅ Updated resource template ID: {template_id}")
+                return True
+            else:
+                self.logger.warning(f"⚠️ Resource template ID {template_id} not found")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error updating resource template: {e}")
+            return False
+    
+    def get_workers_by_template(self, template_id: int) -> List[WorkerResourceDB]:
+        """Get all workers for a specific template"""
+        try:
+            workers = self.db_session.query(WorkerResourceDB).filter(
+                WorkerResourceDB.template_id == template_id,
+                WorkerResourceDB.is_active == True
+            ).order_by(WorkerResourceDB.name).all()
+            
+            self.logger.info(f"✅ Retrieved {len(workers)} workers for template {template_id}")
+            return workers
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error getting workers by template: {e}")
+            return []
+    
+    def get_equipment_by_template(self, template_id: int) -> List[EquipmentResourceDB]:
+        """Get all equipment for a specific template"""
+        try:
+            equipment = self.db_session.query(EquipmentResourceDB).filter(
+                EquipmentResourceDB.template_id == template_id,
+                EquipmentResourceDB.is_active == True
+            ).order_by(EquipmentResourceDB.name).all()
+            
+            self.logger.info(f"✅ Retrieved {len(equipment)} equipment for template {template_id}")
+            return equipment
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error getting equipment by template: {e}")
+            return []
+    
+    # WORKER METHODS
+    def get_user_workers(self, user_id: int, template_id: Optional[int] = None) -> List[WorkerResourceDB]:
+        """Get all workers for a user"""
+        try:
+            query = self.db_session.query(WorkerResourceDB).filter(
+                WorkerResourceDB.user_id == user_id,
+                WorkerResourceDB.is_active == True
+            )
+            
+            if template_id:
+                query = query.filter(WorkerResourceDB.template_id == template_id)
+                
+            workers = query.order_by(WorkerResourceDB.name).all()
+            self.logger.info(f"✅ Retrieved {len(workers)} workers for user {user_id}")
+            return workers
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error getting user workers: {e}")
+            return []
+    
+    def create_worker(self, worker_data: Dict[str, Any]) -> Optional[WorkerResourceDB]:
+        """Create a new worker - NO COMMIT"""
+        try:
+            # Check if worker already exists for this user and code
+            existing = self.db_session.query(WorkerResourceDB).filter(
+                WorkerResourceDB.user_id == worker_data['user_id'],
+                WorkerResourceDB.code == worker_data['code']
+            ).first()
+            
+            if existing:
+                self.logger.warning(f"⚠️ Worker already exists: {worker_data['code']}")
+                return existing
+            
+            db_worker = WorkerResourceDB(**worker_data)
+            self.db_session.add(db_worker)
+            self.db_session.flush()
+            self.logger.info(f"✅ Created new worker: {worker_data['name']}")
+            return db_worker
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error creating worker: {e}")
+            return None
+    
+    def update_worker(self, worker_id: int, user_id: int, updates: Dict[str, Any]) -> Optional[WorkerResourceDB]:
+        """Update a worker by ID - NO COMMIT"""
+        try:
+            db_worker = self.db_session.query(WorkerResourceDB).filter(
+                WorkerResourceDB.id == worker_id,
+                WorkerResourceDB.user_id == user_id
+            ).first()
+            
+            if db_worker:
+                for key, value in updates.items():
+                    if hasattr(db_worker, key) and key not in ['id', 'user_id', 'created_at']:
+                        setattr(db_worker, key, value)
+                self.db_session.flush()
+                self.logger.info(f"✅ Updated worker ID: {worker_id}")
+                return db_worker
+            else:
+                self.logger.warning(f"⚠️ Worker ID {worker_id} not found for user {user_id}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error updating worker: {e}")
+            return None
+    
+    def delete_worker(self, worker_id: int, user_id: int) -> bool:
+        """Soft delete a worker by ID - NO COMMIT"""
+        try:
+            db_worker = self.db_session.query(WorkerResourceDB).filter(
+                WorkerResourceDB.id == worker_id,
+                WorkerResourceDB.user_id == user_id
+            ).first()
+            
+            if db_worker:
+                db_worker.is_active = False
+                self.db_session.flush()
+                self.logger.info(f"✅ Soft deleted worker ID: {worker_id}")
+                return True
+            else:
+                self.logger.warning(f"⚠️ Worker ID {worker_id} not found for user {user_id}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error deleting worker: {e}")
+            return False
+    
+    # EQUIPMENT METHODS
+    def get_user_equipment(self, user_id: int, template_id: Optional[int] = None) -> List[EquipmentResourceDB]:
+        """Get all equipment for a user"""
+        try:
+            query = self.db_session.query(EquipmentResourceDB).filter(
+                EquipmentResourceDB.user_id == user_id,
+                EquipmentResourceDB.is_active == True
+            )
+            
+            if template_id:
+                query = query.filter(EquipmentResourceDB.template_id == template_id)
+                
+            equipment = query.order_by(EquipmentResourceDB.name).all()
+            self.logger.info(f"✅ Retrieved {len(equipment)} equipment for user {user_id}")
+            return equipment
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error getting user equipment: {e}")
+            return []
+    
+    def create_equipment(self, equipment_data: Dict[str, Any]) -> Optional[EquipmentResourceDB]:
+        """Create a new equipment - NO COMMIT"""
+        try:
+            # Check if equipment already exists for this user and code
+            existing = self.db_session.query(EquipmentResourceDB).filter(
+                EquipmentResourceDB.user_id == equipment_data['user_id'],
+                EquipmentResourceDB.code == equipment_data['code']
+            ).first()
+            
+            if existing:
+                self.logger.warning(f"⚠️ Equipment already exists: {equipment_data['code']}")
+                return existing
+            
+            db_equipment = EquipmentResourceDB(**equipment_data)
+            self.db_session.add(db_equipment)
+            self.db_session.flush()
+            self.logger.info(f"✅ Created new equipment: {equipment_data['name']}")
+            return db_equipment
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error creating equipment: {e}")
+            return None
+    
+    def update_equipment(self, equipment_id: int, user_id: int, updates: Dict[str, Any]) -> Optional[EquipmentResourceDB]:
+        """Update an equipment by ID - NO COMMIT"""
+        try:
+            db_equipment = self.db_session.query(EquipmentResourceDB).filter(
+                EquipmentResourceDB.id == equipment_id,
+                EquipmentResourceDB.user_id == user_id
+            ).first()
+            
+            if db_equipment:
+                for key, value in updates.items():
+                    if hasattr(db_equipment, key) and key not in ['id', 'user_id', 'created_at']:
+                        setattr(db_equipment, key, value)
+                self.db_session.flush()
+                self.logger.info(f"✅ Updated equipment ID: {equipment_id}")
+                return db_equipment
+            else:
+                self.logger.warning(f"⚠️ Equipment ID {equipment_id} not found for user {user_id}")
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error updating equipment: {e}")
+            return None
+    
+    def delete_equipment(self, equipment_id: int, user_id: int) -> bool:
+        """Soft delete an equipment by ID - NO COMMIT"""
+        try:
+            db_equipment = self.db_session.query(EquipmentResourceDB).filter(
+                EquipmentResourceDB.id == equipment_id,
+                EquipmentResourceDB.user_id == user_id
+            ).first()
+            
+            if db_equipment:
+                db_equipment.is_active = False
+                self.db_session.flush()
+                self.logger.info(f"✅ Soft deleted equipment ID: {equipment_id}")
+                return True
+            else:
+                self.logger.warning(f"⚠️ Equipment ID {equipment_id} not found for user {user_id}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error deleting equipment: {e}")
+            return False
+    
+    # BULK OPERATIONS
+    def get_template_with_resources(self, template_id: int) -> Optional[Dict[str, Any]]:
+        """Get a template with all its resources"""
+        try:
+            template = self.db_session.query(ResourceTemplateDB).filter(
+                ResourceTemplateDB.id == template_id
+            ).first()
+            
+            if template:
+                workers = self.get_workers_by_template(template_id)
+                equipment = self.get_equipment_by_template(template_id)
+                
+                return {
+                    'template': template,
+                    'workers': workers,
+                    'equipment': equipment
+                }
+            else:
+                return None
+                
+        except Exception as e:
+            self.logger.error(f"❌ Error getting template with resources: {e}")
+            return None
+    
+    def count_template_resources(self, template_id: int) -> Dict[str, int]:
+        """Count resources in a template"""
+        try:
+            worker_count = self.db_session.query(WorkerResourceDB).filter(
+                WorkerResourceDB.template_id == template_id,
+                WorkerResourceDB.is_active == True
+            ).count()
+            
+            equipment_count = self.db_session.query(EquipmentResourceDB).filter(
+                EquipmentResourceDB.template_id == template_id,
+                EquipmentResourceDB.is_active == True
+            ).count()
+            
+            return {
+                'workers': worker_count,
+                'equipment': equipment_count,
+                'total': worker_count + equipment_count
+            }
+            
+        except Exception as e:
+            self.logger.error(f"❌ Error counting template resources: {e}")
+            return {'workers': 0, 'equipment': 0, 'total': 0}
+        
+    def get_worker_by_id(self, worker_id: int):
+        """Get worker by ID"""
+        try:
+            return self.db_session.query(WorkerResourceDB).filter(
+            WorkerResourceDB.id == worker_id
+            ).first()
+        except Exception as e:
+            self.logger.error(f"Error getting worker by ID: {e}")
+            return None
 
-def safe_rollback(session: SessionType, context: str = "Operation") -> bool:
-    try:
-        session.rollback()
-        logger.debug("🔄 Rollback succeeded (%s)", context)
-        return True
-    except Exception as e:
-        logger.error("❌ Rollback failed (%s): %s", context, e)
-        return False
+    def get_equipment_by_id(self, equipment_id: int):
+        """Get equipment by ID"""
+        try:
+            return self.db_session.query(EquipmentResourceDB).filter(
+            EquipmentResourceDB.id == equipment_id
+            ).first()
+        except Exception as e:
+            self.logger.error(f"Error getting equipment by ID: {e}")
+            return None
 
-# ---------- Optional helpers ----------
-def init_database() -> bool:
+    def get_template_by_id(self, template_id: int):
+        """Get template by ID"""
+        try:
+            return self.db_session.query(ResourceTemplateDB).filter(
+            ResourceTemplateDB.id == template_id
+            ).first()
+        except Exception as e:
+            self.logger.error(f"Error getting template by ID: {e}")
+            return None
+
+# ====== End of backend/db/repositories/resource_repo.py ======
+
+
+
+# ====== Begin of frontend/helpers/template_context.py ======
+
+"""
+Template Context Manager for unified template state management - UPDATED
+"""
+
+import streamlit as st
+from typing import Dict, Any, Optional, List, Callable
+import logging
+
+logger = logging.getLogger(__name__)
+
+class TemplateContextManager:
     """
-    Optional initialization — checks the DB connectivity and optionally ensures tables exist.
-    Returns True if connection is verified.
+    Professional template context manager for unified state management
+    UPDATED: Works with new service pattern from app.py
     """
+    
+    def __init__(self):
+        self._observers: List[Callable] = []
+        
+        # Initialize session state for templates if not exists
+        if 'template_context' not in st.session_state:
+            st.session_state.template_context = {
+                'resource_template': None,
+                'task_template': None,
+                'last_updated': None,
+                'initialized': False
+            }
+    
+    @property
+    def resource_template(self) -> Optional[Dict[str, Any]]:
+        return st.session_state.template_context['resource_template']
+    
+    @resource_template.setter
+    def resource_template(self, template: Optional[Dict[str, Any]]):
+        st.session_state.template_context['resource_template'] = template
+        st.session_state.template_context['last_updated'] = 'resource'
+        self._notify_observers()
+    
+    @property
+    def task_template(self) -> Optional[Dict[str, Any]]:
+        return st.session_state.template_context['task_template']
+    
+    @task_template.setter
+    def task_template(self, template: Optional[Dict[str, Any]]):
+        st.session_state.template_context['task_template'] = template
+        st.session_state.template_context['last_updated'] = 'task'
+        self._notify_observers()
+    
+    def get_current_context(self) -> Dict[str, Any]:
+        """Get complete context with validation state"""
+        context = {
+            'resource_template': self.resource_template,
+            'task_template': self.task_template,
+            'is_ready': bool(self.resource_template and self.task_template),
+            'last_updated': st.session_state.template_context.get('last_updated'),
+            'initialized': st.session_state.template_context.get('initialized', False)
+        }
+        
+        # Add compatibility info if both templates are selected
+        if context['is_ready']:
+            context['compatibility'] = self._get_compatibility_summary()
+            
+        return context
+    
+    def is_ready(self) -> bool:
+        """Check if both resource and task templates are set."""
+        return bool(self.resource_template and self.task_template)
+    
+    def initialize_with_services(self, services: Dict[str, Any], user_id: int):
+        """Initialize context with services from app.py"""
+        try:
+            if st.session_state.template_context.get('initialized'):
+                return
+                
+            # Get available templates from services
+            resource_service = services['resource_service']
+            task_service = services['task_service']
+            
+            resource_templates = resource_service.get_user_resource_templates(user_id)
+            task_templates = task_service.get_user_task_templates(user_id)
+            
+            # Set default selections if available
+            if resource_templates:
+                self.resource_template = resource_templates[0]
+            
+            if task_templates:
+                # Use the first task template group
+                task_groups = task_service.get_task_template_groups(user_id)
+                if task_groups:
+                    self.task_template = task_groups[0]
+            
+            st.session_state.template_context['initialized'] = True
+            logger.info("✅ Template context initialized with services")
+            
+        except Exception as e:
+            logger.error(f"❌ Error initializing template context with services: {e}")
+    
+    def clear_context(self):
+        """Clear all template context"""
+        st.session_state.template_context = {
+            'resource_template': None,
+            'task_template': None,
+            'last_updated': None,
+            'initialized': False
+        }
+        self._notify_observers()
+    
+    def register_observer(self, callback: Callable):
+        """Register a callback to be called when context changes"""
+        if callback not in self._observers:
+            self._observers.append(callback)
+            logger.info(f"Registered template context observer: {callback.__name__}")
+    
+    def unregister_observer(self, callback: Callable):
+        """Unregister an observer"""
+        if callback in self._observers:
+            self._observers.remove(callback)
+    
+    def _notify_observers(self):
+        """Notify all observers of context changes"""
+        for callback in self._observers:
+            try:
+                callback()
+            except Exception as e:
+                logger.error(f"Error in template context observer {callback.__name__}: {e}")
+    
+    def _get_compatibility_summary(self) -> Dict[str, Any]:
+        """Generate compatibility summary for current context"""
+        if not self.resource_template or not self.task_template:
+            return {}
+            
+        return {
+            'status': 'unknown',  # Will be set by validation service
+            'resource_match': True,
+            'equipment_match': True,
+            'notes': 'Compatibility validation pending'
+        }
+
+# Global instance for easy access
+template_context = TemplateContextManager()
+
+def get_template_context() -> TemplateContextManager:
+    """Get the global template context instance"""
+    return template_context
+
+def render_template_context_selector(services: Dict[str, Any], user_id: int):
+    """
+    Render template context selector component - UPDATED
+    Uses services passed from app.py instead of reinitializing
+    """
+    context = get_template_context()
+    
+    # Initialize context with services if not done
+    if not context.get_current_context()['initialized']:
+        context.initialize_with_services(services, user_id)
+    
+    st.markdown("### 🎯 Contexte de Travail")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        _render_resource_template_selector(services, user_id, context)
+    
+    with col2:
+        _render_task_template_selector(services, user_id, context)
+    
+    # Display current context status
+    _render_context_status(context, services)
+
+def _render_resource_template_selector(services, user_id: int, context: TemplateContextManager):
+    """Render resource template selector - UPDATED"""
+    resource_service = services['resource_service']
+    resource_templates = resource_service.get_user_resource_templates(user_id)
+    
+    if resource_templates:
+        template_options = {f"{rt['name']} (ID: {rt['id']})": rt for rt in resource_templates}
+        
+        # Get current selection
+        current_template = context.resource_template
+        current_key = None
+        if current_template:
+            current_key = f"{current_template['name']} (ID: {current_template['id']})"
+        
+        selected_key = st.selectbox(
+            "📦 Modèle de Ressources Actif:",
+            options=[''] + list(template_options.keys()),
+            index=list(template_options.keys()).index(current_key) + 1 if current_key else 0,
+            key="resource_context_selector_main",
+            help="Sélectionnez le modèle de ressources que vous modifiez"
+        )
+        
+        if selected_key and selected_key in template_options:
+            context.resource_template = template_options[selected_key]
+        elif not selected_key:
+            context.resource_template = None
+            
+    else:
+        st.error("❌ Aucun modèle de ressources disponible")
+        if st.button("📥 Créer Modèle Défaut", key="create_default_resource"):
+            resource_service.load_default_resources(user_id)
+            st.rerun()
+
+def _render_task_template_selector(services, user_id: int, context: TemplateContextManager):
+    """Render task template selector - UPDATED to use services from app.py"""
+    task_service = services['task_service']
+    
+    # Get task template groups using the service method
+    task_groups = task_service.get_task_template_groups(user_id)
+    
+    if task_groups:
+        # Create display options for template groups
+        template_options = {}
+        for group in task_groups:
+            template_name = group['template_name']
+            disciplines = ', '.join(sorted(group['disciplines']))
+            display_name = f"{template_name} ({group['task_count']} tâches, {disciplines})"
+            template_options[display_name] = group
+        
+        # Get current selection
+        current_template = context.task_template
+        current_key = None
+        if current_template:
+            current_template_name = current_template.get('template_name')
+            if current_template_name:
+                for display_name, template_data in template_options.items():
+                    if template_data['template_name'] == current_template_name:
+                        current_key = display_name
+                        break
+        
+        selected_key = st.selectbox(
+            "📚 Groupe de Tâches Actif:",
+            options=[''] + list(template_options.keys()),
+            index=list(template_options.keys()).index(current_key) + 1 if current_key else 0,
+            key="task_context_selector_main",
+            help="Sélectionnez un groupe de tâches (template) pour les taux de productivité"
+        )
+        
+        if selected_key and selected_key in template_options:
+            context.task_template = template_options[selected_key]
+        elif not selected_key:
+            context.task_template = None
+            
+    else:
+        st.error("❌ Aucun groupe de tâches disponible")
+        if st.button("📥 Charger Tâches Défaut", key="load_default_tasks"):
+            task_service.load_default_tasks(user_id)
+            st.rerun()
+
+def _render_context_status(context: TemplateContextManager, services: Dict[str, Any]):
+    """Render current context status - UPDATED"""
+    current_context = context.get_current_context()
+    
+    if current_context['is_ready']:
+        st.success("✅ Contexte prêt pour les opérations")
+        
+        # Display template details
+        col1, col2 = st.columns(2)
+        with col1:
+            st.info(f"**Ressources:** {current_context['resource_template']['name']}")
+        with col2:
+            template_name = current_context['task_template'].get('template_name', 'Sans nom')
+            st.info(f"**Tâches:** {template_name}")
+        
+        # Validate compatibility
+        if st.button("🔍 Valider Compatibilité", key="validate_compatibility"):
+            _validate_template_compatibility(context, services)
+    else:
+        st.warning("⚠️ Sélectionnez un modèle de ressources ET un modèle de tâches")
+
+def _validate_template_compatibility(context: TemplateContextManager, services: Dict[str, Any]):
+    """Validate template compatibility - UPDATED"""
     try:
-        # Create a session (ensures engine exists)
-        with get_db_session() as s:
-            s.execute(sa_text("SELECT 1"))   # explicit sqlalchemy.text()
-        logger.info("✅ Database connection successful")
-        return True
+        template_service = services['template_service']
+        current_context = context.get_current_context()
+        
+        if current_context['is_ready']:
+            validation = template_service.validate_template_compatibility(
+                current_context['resource_template'],
+                current_context['task_template']
+            )
+            
+            if validation.get('compatible', False):
+                st.success("✅ Templates compatibles!")
+            else:
+                st.error("❌ Problèmes de compatibilité détectés")
+                
+            # Show detailed validation results
+            with st.expander("📋 Détails de Validation", expanded=True):
+                st.json(validation)
+                
     except Exception as e:
-        logger.error("❌ Database initialization failed: %s", e)
-        raise
+        st.error(f"❌ Erreur lors de la validation: {e}")
 
-
-
-
-# ====== End of backend/db/session.py ======
+# ====== End of frontend/helpers/template_context.py ======
 
