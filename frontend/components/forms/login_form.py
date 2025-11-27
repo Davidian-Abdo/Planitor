@@ -29,7 +29,13 @@ def login_form_component():
             login_submit = st.form_submit_button("Login")
         with col2:
             register_submit = st.form_submit_button("Register")
-
+    
+    
+    # Handle register
+    if register_submit:
+        st.session_state['current_page'] = 'register'
+        st.rerun() 
+        
     # Handle login
     if login_submit:
         user_data = auth_manager.authenticate_user(username, password)
@@ -43,8 +49,3 @@ def login_form_component():
             st.rerun()
         else:
             st.error("❌ Invalid username or password")
-
-    # Handle register
-    if register_submit:
-        st.session_state['current_page'] = 'register'
-        st.rerun()

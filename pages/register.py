@@ -5,7 +5,7 @@ import streamlit as st
 from frontend.components.auth.registration_form import registration_form_component
 
 st.set_page_config(
-    page_title="Register - Construction Planner",
+    page_title="Register ---- Planitor - plan and monitor your constructions",
     page_icon="👤",
     layout="centered"
 )
