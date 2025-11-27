@@ -11,13 +11,27 @@ from frontend.components.tabs.template_association import render_template_associ
 
 logger = logging.getLogger(__name__)
 
-def show(db_session: Session,services: Dict[str, Any], user_id: int):
-    """REFACTORED Template manager main entry point"""
+def show(db_session: Session, services: Dict[str, Any], user_id: int):
+    """DEBUG: Template manager with detailed error tracking"""
     try:
         st.title("🏗️ Gestionnaire de Templates Unifié")
         
-        # ✅ FIXED: Do NOT store db_session in session state
-        # Database sessions are request-scoped and should not persist
+        # ✅ DEBUG: Check session state before anything else
+        st.write("🔍 DEBUG: Session state keys:", list(st.session_state.keys()))
+        
+        # ✅ DEBUG: Check if template_context exists
+        if 'template_context' in st.session_state:
+            st.write("✅ DEBUG: template_context exists in session state")
+        else:
+            st.write("❌ DEBUG: template_context MISSING from session state")
+            # Initialize it immediately
+            st.session_state.template_context = {
+                'resource_template': None,
+                'task_template': None,
+                'last_updated': None,
+                'initialized': False
+            }
+            st.write("✅ DEBUG: template_context created in session state")
         
         # Load professional CSS
         load_template_manager_css()
@@ -35,19 +49,17 @@ def show(db_session: Session,services: Dict[str, Any], user_id: int):
 
         # ----------------- Tab 1: Unified Resource Templates -----------------
         with tab1:
+            st.write("🔍 DEBUG: Before rendering resource tab")
             render_resource_templates_tab(services, user_id, db_session)
+            st.write("🔍 DEBUG: After rendering resource tab")
         
-        # ----------------- Tab 2: Task Library -----------------
-        with tab2:
-            render_task_library_tab(services, user_id, db_session)
-        
-        # ----------------- Tab 3: Template Associations -----------------
-        with tab3:
-            render_template_associations_tab(services, user_id, db_session)
+        # ... rest of the tabs ...
 
     except Exception as e:
         logger.error(f"❌ Error in templates manager page: {e}")
-        st.error("❌ Erreur lors du chargement du gestionnaire de templates")
+        st.error(f"❌ Erreur lors du chargement du gestionnaire de templates: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 
 
 def load_template_manager_css():
