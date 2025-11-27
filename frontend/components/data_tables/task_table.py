@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Any
 import logging
 from backend.utils.widget_manager import widget_manager
 
-from frontend.components.context.template_context import template_context
+from frontend.helpers.template_context import template_context
 
 logger = logging.getLogger(__name__)
 

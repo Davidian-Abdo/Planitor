@@ -9,7 +9,7 @@ from typing import List, Dict, Optional, Any
 from backend.utils.widget_manager import widget_manager
 
 # Import template context
-from frontend.components.context.template_context import template_context
+from frontend.helpers.template_context import template_context
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +259,7 @@ def _apply_worker_filters(workers: List[Dict], specialty: str, category: str, ac
     
     return filtered
 
-def _render_worker_table_interface(workers: List[Dict], resource_service, user_id: int, available_templates: List[Dict], template_id: Optional[int] = None):
+def _render_worker_table_interface(workers: List[Dict], resource_service, user_id: int, available_templates: List[Dict], template_id: Optional[int] = None,template_service=None):
     """Render worker table interface"""
     
     # Worker selection
@@ -300,7 +300,7 @@ def _render_worker_table_interface(workers: List[Dict], resource_service, user_i
         with col1:
             if st.button("🔍 Tester Compatibilité", use_container_width=True,
                         key=widget_manager.generate_key("test_compatibility", "worker_table")):
-                _test_worker_compatibility(selected_worker, template_service)
+                _test_worker_compatibility(selected_worker, template_service=template_service)
         with col2:
             if st.button("📈 Analyser Productivité", use_container_width=True,
                         key=widget_manager.generate_key("analyze_productivity", "worker_table")):
