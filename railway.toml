@@ -1,0 +1,8 @@
+[build]
+builder = "NIXPACKS"
+
+[env]
+PYTHON_VERSION = "3.13"
+
+[start]
+cmd = "streamlit run Planitor/app.py --server.port $PORT --server.address 0.0.0.0"
