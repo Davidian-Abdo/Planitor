@@ -17,7 +17,3 @@ def show():
     if registration_form_component():
         st.balloons()
         st.success("Account created successfully! You can now log in.")
-        if st.button("Go to Login"): 
-            st.switch_page('pages/login.py')
-            st.session_state['current_page'] = 'login'
-        

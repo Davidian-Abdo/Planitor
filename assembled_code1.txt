@@ -305,6 +305,15 @@ class ConstructionApp:
             logger.error(f"❌ Login page error: {e}")
             self._show_error_page(e)
 
+
+    def _render_register_interface(self):
+        """Render register page for unauthenticated users"""
+        try:
+            from pages.register import show as show_register_page
+            show_register_page()
+        except Exception as e:
+            logger.error(f"❌ Register page error: {e}")
+            self._show_error_page(e)
     # ------------------- Error Handling -------------------
 
     def _show_error_page(self, error: Exception):
@@ -357,8 +366,15 @@ class ConstructionApp:
             if self._is_authenticated():
                 self._render_authenticated_interface()
             else:
-                self._render_login_interface()
                 
+
+                current_page = st.session_state.get('current_page', 'login')
+            
+                if current_page == 'register':
+                    self._render_register_interface()  # You need to create this
+                else:
+                    self._render_login_interface()
+
             # Optional debug information
             self._show_widget_debug_info()
                 
@@ -448,75 +464,6 @@ def _render_login_header():
         
         st.markdown("---")
 
-def _handle_successful_login():
-    """Handle professional post-login workflow"""
-    # Professional success feedback
-    st.success("✅ Authentication successful!")
-    
-    # Professional redirect with user feedback
-    st.toast("🎉 Welcome! Redirecting to your dashboard...")
-    
-    # Smooth transition to main application
-    st.markdown(
-        """
-        <div style='text-align: center; padding: 2rem;'>
-            <p>Redirecting to application...</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    # Professional navigation
-    st.switch_page("pages/project_setup.py")
-
-def _render_legacy_login_form():
-    """
-    Legacy login form for backward compatibility
-    This can be removed once all components are updated
-    """
-    st.warning("⚠️ Using legacy authentication method")
-    
-    with st.form("legacy_login_form"):
-        st.subheader("Legacy Login")
-        
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        
-        if st.form_submit_button("Login"):
-            if username and password:
-                # Simple validation for demo purposes
-                if len(username) >= 3 and len(password) >= 6:
-                    st.session_state.authenticated = True
-                    st.session_state.user = {"username": username, "role": "user"}
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials")
-            else:
-                st.error("Please enter username and password")
-
-def main():
-    """
-    Main function for direct script execution
-    Provides backward compatibility
-    """
-    try:
-        # Initialize database session if needed
-        from backend.db.session import get_db_session
-        
-        with get_db_session() as db_session:
-            show(db_session)
-            
-    except Exception as e:
-        logger.error(f"Login page error: {e}")
-        
-        # Fallback to legacy mode
-        st.error("System initialization error - using legacy mode")
-        _render_legacy_login_form()
-
-# Backward compatibility
-if __name__ == "__main__":
-    main()
-
 # ====== End of pages/login.py ======
 
 
@@ -530,25 +477,84 @@ import streamlit as st
 from frontend.components.auth.registration_form import registration_form_component
 
 st.set_page_config(
-    page_title="Register - Construction Planner",
+    page_title="Register ---- Planitor - plan and monitor your constructions",
     page_icon="👤",
     layout="centered"
 )
 
-def main(): 
+def show(): 
     st.title("👤 Create Account")
     st.markdown("Join the Construction Project Planner platform")
     
     if registration_form_component():
         st.balloons()
         st.success("Account created successfully! You can now log in.")
-        if st.button("Go to Login"):
-            st.switch_page("pages/login.py")
+        if st.button("Go to Login"): 
+            st.switch_page('pages/login.py')
+            st.session_state['current_page'] = 'login'
+        
 
-if __name__ == "__main__":
-    main()
 
 # ====== End of pages/register.py ======
+
+
+
+# ====== Begin of frontend/components/forms/login_form.py ======
+
+"""
+frontend/components/forms/login_form.py
+Professional Login Form Component with Register
+"""
+
+import streamlit as st
+import logging
+
+
+logger = logging.getLogger(__name__)
+
+from backend.db.session import get_db_session
+from backend.auth.auth_manager import AuthManager
+
+# Professional login form
+def login_form_component():
+    db_session = get_db_session()  # get database session
+    auth_manager = AuthManager(db_session)  # pass session
+
+    st.title("🏗️ Professional Construction Planner Login")
+
+    with st.form(key="login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        remember_me = st.checkbox("Remember me", value=False)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            login_submit = st.form_submit_button("Login")
+        with col2:
+            register_submit = st.form_submit_button("Register")
+    
+    
+    # Handle register
+    if register_submit:
+        st.session_state['current_page'] = 'register'
+        st.rerun()  
+        
+    # Handle login
+    if login_submit:
+        user_data = auth_manager.authenticate_user(username, password)
+        if user_data:
+            if 'session_manager' not in st.session_state:
+                from backend.auth.session_manager import SessionManager
+                st.session_state.session_manager = SessionManager()
+
+            st.session_state.session_manager.create_session(user_data)
+            st.session_state['current_page'] = 'project_setup'
+            st.rerun()
+        else:
+            st.error("❌ Invalid username or password")
+
+
+# ====== End of frontend/components/forms/login_form.py ======
 
 
 
@@ -635,10 +641,7 @@ def registration_form_component() -> bool:
                     st.success("✅ Account created successfully! You can now log in.")
                     
                     # ✅ Correct page redirection
-                    if st.button("🔐 Login Now"):
-                        st.session_state.current_page = "login"
-                        st.rerun()
-                    
+                    st.session_state['current_page'] = "login"
                     return True
                 else:
                     st.error("❌ Failed to save user to database")
@@ -833,341 +836,4 @@ def init_database() -> bool:
 
 
 # ====== End of backend/db/session.py ======
-
-
-
-# ====== Begin of backend/auth/auth_manager.py ======
-
-"""
-FIXED AuthManager with proper session injection
-"""
-import logging
-from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
-import jwt
-from sqlalchemy.orm import Session
-
-from backend.utils.security.password_utils import hash_password, verify_password
-from ..models.db_models import UserDB
-from backend.services.user_service import UserService  # ✅ Fixed import
-
-logger = logging.getLogger(__name__)
-
-class AuthManager:
-    """
-    FIXED authentication manager with proper session usage
-    """
-    
-    def __init__(self, db_session: Session, secret_key: str = "construction_planner_secret_2024"):
-
-        self.db_session = db_session  # ✅ Use injected session
-        self.secret_key = secret_key
-        self.user_service = UserService(db_session)  # ✅ Pass session to service
-        self.token_expiry_hours = 24
-    
-    def authenticate_user(self, username: str, password: str) -> Optional[Dict[str, Any]]:
-        """
-        Authenticate user and return SessionManager-compatible user info
-        """
-        try:
-            logger.info(f"Authentication attempt for user: {username}")
-            
-            # Get user from database using injected session
-            user = self.user_service.authenticate_user(username, password)
-            
-            if user and user.is_active:
-                # Generate JWT token
-                token = self._generate_token(user)
-                
-                # SessionManager-compatible user info
-                user_info = {
-                    'user_id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'role': user.role,
-                    'full_name': user.full_name or user.username,
-                    'token': token,
-                    'last_login': user.last_login.isoformat() if user.last_login else None
-                }
-                
-                # Update last login
-                self.user_service.update_user_last_login(user.id)
-                
-                logger.info(f"User {username} authenticated successfully")
-                return user_info
-            
-            logger.warning(f"Authentication failed for user: {username}")
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error during authentication for {username}: {e}")
-            return None
-    
-    def register_user(self, username: str, email: str, password: str, 
-                     full_name: str = "", role: str = "user") -> Optional[Dict[str, Any]]:
-        """
-        Register a new user with SessionManager-compatible response
-        
-        Args:
-            username: Unique username
-            email: User email
-            password: Plain text password
-            full_name: User's full name
-            role: User role (user, manager, admin)
-            
-        Returns:
-            Dict with user info compatible with SessionManager
-        """
-        try:
-            logger.info(f"Registration attempt for user: {username}")
-            
-            valid_roles = ["admin", "ingénieur", "directeur"]
-            # ✅ Validate role
-            if role.lower() not in valid_roles:
-                logger.error(f"Invalid role provided: {role}")
-                return None
-
-            # Create new user
-            user = self.user_service.create_user(
-                username=username,
-                email=email,
-                password=password,
-                full_name=full_name,
-                role=role
-            )
-            
-            if user:
-                # Generate token for immediate login
-                token = self._generate_token(user)
-                
-                # ✅ SessionManager-compatible response
-                user_info = {
-                    'user_id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'role': user.role,
-                    'full_name': user.full_name or user.username,
-                    'token': token,
-                    'created_at': user.created_at.isoformat()
-                }
-                
-                logger.info(f"User {username} registered successfully")
-                return user_info
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error during registration for {username}: {e}")
-            return None
-    
-    def validate_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """
-        Validate JWT token and return SessionManager-compatible user info
-        
-        Args:
-            token: JWT token to validate
-            
-        Returns:
-            Dict with user info if valid, None otherwise
-        """
-        try:
-            if not token:
-                return None
-            
-            # Decode token
-            payload = jwt.decode(token, self.secret_key, algorithms=["HS256"])
-            
-            # Check expiration
-            if datetime.fromtimestamp(payload['exp']) < datetime.now():
-                logger.warning("Token has expired")
-                return None
-            
-            # Get user from database
-            user_id = payload['user_id']
-            user = self.user_service.get_user_by_id(user_id)
-            
-            if user and user.is_active:
-                # ✅ SessionManager-compatible format
-                user_info = {
-                    'user_id': user.id,
-                    'username': user.username,
-                    'email': user.email,
-                    'role': user.role,
-                    'full_name': user.full_name or user.username
-                }
-                return user_info
-            
-            return None
-            
-        except jwt.ExpiredSignatureError:
-            logger.warning("Token signature has expired")
-            return None
-        except jwt.InvalidTokenError:
-            logger.warning("Invalid token provided")
-            return None
-        except Exception as e:
-            logger.error(f"Error validating token: {e}")
-            return None
-    
-    def _generate_token(self, user: UserDB) -> str:
-        """
-        Generate JWT token for user
-        
-        Args:
-            user: User database object
-            
-        Returns:
-            JWT token string
-        """
-        payload = {
-            'user_id': user.id,
-            'username': user.username,
-            'role': user.role,
-            'exp': datetime.now() + timedelta(hours=self.token_expiry_hours),
-            'iat': datetime.now()
-        }
-        
-        token = jwt.encode(payload, self.secret_key, algorithm="HS256")
-        return token
-    
-    # Other methods remain the same but ensure SessionManager compatibility
-    def change_password(self, user_id: int, current_password: str, new_password: str) -> bool:
-        """Change user password with verification"""
-        try:
-            user = self.user_service.get_user_by_id(user_id)
-            if not user:
-                return False
-            
-            # Verify current password
-            if not verify_password(current_password, user.password_hash):
-                logger.warning(f"Current password verification failed for user {user_id}")
-                return False
-            
-            # Change password
-            success = self.user_service.change_password(user_id, current_password, new_password)
-            
-            if success:
-                logger.info(f"Password changed successfully for user {user_id}")
-            else:
-                logger.warning(f"Password change failed for user {user_id}")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error changing password for user {user_id}: {e}")
-            return False
-    
-    def validate_password_strength(self, password: str) -> Dict[str, Any]:
-        """
-        Validate password strength against security requirements
-        
-        Args:
-            password: Password to validate
-            
-        Returns:
-            Dict with validation results
-        """
-        from auth_config import validate_password_strength
-        return validate_password_strength(password)
-
-
-
-    def refresh_token(self, old_token: str) -> Optional[str]:
-        """
-        Refresh an expired token
-        
-        Args:
-            old_token: Expired token to refresh
-            
-        Returns:
-            New token if successful, None otherwise
-        """
-        try:
-            # Validate old token (even if expired)
-            payload = jwt.decode(old_token, self.secret_key, algorithms=["HS256"], options={"verify_exp": False})
-            
-            user_id = payload['user_id']
-            user = self.user_service.get_user_by_id(user_id)
-            
-            if user and user.is_active:
-                new_token = self._generate_token(user)
-                logger.info(f"Token refreshed for user {user.username}")
-                return new_token
-            
-            return None
-            
-        except Exception as e:
-            logger.error(f"Error refreshing token: {e}")
-            return None
-    def logout_user(self, user_id: int, token: str = None) -> bool:
-        """
-        Logout user and invalidate token (placeholder for future implementation)
-        
-        Args:
-            user_id: User ID
-            token: Specific token to invalidate (optional)
-            
-        Returns:
-            bool: True if logout successful
-        """
-        # In a production system, you would:
-        # 1. Add token to blacklist
-        # 2. Remove from active sessions
-        # 3. Log the logout event
-        
-        logger.info(f"User {user_id} logged out")
-        return True
-
-
-    def update_user_last_login(self, user_id: int) -> bool:
-        """
-        Update user's last login timestamp
-        Args:
-        user_id: User ID to update
-        Returns:
-        bool: True if updated successfully
-        """
-        try:
-            success = self.user_service.update_user_last_login(user_id)
-            if success:
-                logger.info(f"Updated last login for user {user_id}")
-            else:
-                logger.warning(f"Failed to update last login for user {user_id}")
-            return success
-        except Exception as e:
-            logger.error(f"Error updating last login for user {user_id}: {e}")
-
-    def deactivate_user(self, user_id: int, admin_user_id: int) -> bool:
-        """
-        Deactivate a user account (admin only)
-        
-        Args:
-            user_id: User ID to deactivate
-            admin_user_id: Admin user ID performing the action
-            
-        Returns:
-            bool: True if deactivated successfully
-        """
-        try:
-            # Verify admin privileges
-            admin_user = self.user_service.get_user_by_id(admin_user_id)
-            if not admin_user or admin_user.role != 'admin':
-                logger.warning(f"User {admin_user_id} attempted to deactivate user without admin privileges")
-                return False
-            
-            success = self.user_service.deactivate_user(user_id)
-            
-            if success:
-                logger.info(f"User {user_id} deactivated by admin {admin_user_id}")
-            else:
-                logger.warning(f"Failed to deactivate user {user_id}")
-            
-            return success
-            
-        except Exception as e:
-            logger.error(f"Error deactivating user {user_id}: {e}")
-            return False
-    
-
-# ====== End of backend/auth/auth_manager.py ======
 

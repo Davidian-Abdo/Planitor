@@ -2,6 +2,7 @@
 Enhanced User registration form compatible with SessionManager
 """
 import streamlit as st
+import time
 from backend.auth.auth_manager import AuthManager
 
 def registration_form_component() -> bool:
@@ -78,14 +79,17 @@ def registration_form_component() -> bool:
                 if safe_commit(db_session, "User registration"):
                     st.success("✅ Account created successfully! You can now log in.")
                     
-                    # ✅ Correct page redirection
-                    st.session_state['current_page'] = "login"
-                    return True
-                else:
-                    st.error("❌ Failed to save user to database")
-                    return False
-            else:
-                st.error("❌ Username or email already exists")
+                    col1, col2 = st.columns([1, 2])
+                    with col1:
+                        if st.button("🔐 Go to Login Now", type="primary"):
+                            st.session_state.current_page = "login"
+                            st.rerun()
+                    with col2:
+                        st.info("You will be automatically redirected in 5 seconds...")
+                    
+                    time.sleep(5)
+                    st.session_state.current_page = "login"
+                    st.rerun()
                 return False
                 
         except Exception as e:

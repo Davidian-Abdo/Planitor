@@ -27,9 +27,10 @@ if __name__ == "__main__":
     files_to_copy = ["app.py",   
              "pages/login.py",
              "pages/register.py",
+             "frontend/components/forms/login_form.py",
              "frontend/components/auth/registration_form.py",
              "backend/db/session.py",
-             "backend/auth/auth_manager.py"
+             
 
             # "backend/db/base.py",
         # "backend/auth/session_manager.py",          
