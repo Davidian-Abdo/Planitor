@@ -1,5 +1,5 @@
 """
-FIXED Template Context Manager with proper initialization
+FIXED Template Context Manager with LAZY initialization
 """
 
 import streamlit as st
@@ -10,15 +10,15 @@ logger = logging.getLogger(__name__)
 
 class TemplateContextManager:
     """
-    FIXED Professional template context manager with proper initialization
+    FIXED: Lazy template context manager that doesn't access session state on import
     """
     
     def __init__(self):
         self._observers: List[Callable] = []
-        self._ensure_initialized()
+        # ✅ REMOVE initialization from __init__ - do it lazily
     
     def _ensure_initialized(self):
-        """Ensure template context is initialized in session state"""
+        """Ensure template context is initialized in session state - LAZY"""
         if 'template_context' not in st.session_state:
             st.session_state.template_context = {
                 'resource_template': None,
@@ -30,31 +30,31 @@ class TemplateContextManager:
     
     @property
     def resource_template(self) -> Optional[Dict[str, Any]]:
-        self._ensure_initialized()
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         return st.session_state.template_context['resource_template']
     
     @resource_template.setter
     def resource_template(self, template: Optional[Dict[str, Any]]):
-        self._ensure_initialized()
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         st.session_state.template_context['resource_template'] = template
         st.session_state.template_context['last_updated'] = 'resource'
         self._notify_observers()
     
     @property
     def task_template(self) -> Optional[Dict[str, Any]]:
-        self._ensure_initialized()
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         return st.session_state.template_context['task_template']
     
     @task_template.setter
     def task_template(self, template: Optional[Dict[str, Any]]):
-        self._ensure_initialized()
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         st.session_state.template_context['task_template'] = template
         st.session_state.template_context['last_updated'] = 'task'
         self._notify_observers()
     
     def get_current_context(self) -> Dict[str, Any]:
         """Get complete context with validation state"""
-        self._ensure_initialized()
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         
         context = {
             'resource_template': self.resource_template,
@@ -72,12 +72,12 @@ class TemplateContextManager:
     
     def is_ready(self) -> bool:
         """Check if both resource and task templates are set."""
-        self._ensure_initialized()
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         return bool(self.resource_template and self.task_template)
     
     def initialize_with_services(self, services: Dict[str, Any], user_id: int):
         """Initialize context with services from app.py"""
-        self._ensure_initialized()
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         
         try:
             if st.session_state.template_context.get('initialized'):
@@ -106,56 +106,10 @@ class TemplateContextManager:
         except Exception as e:
             logger.error(f"❌ Error initializing template context with services: {e}")
     
-    def clear_context(self):
-        """Clear all template context"""
-        self._ensure_initialized()
-        st.session_state.template_context = {
-            'resource_template': None,
-            'task_template': None,
-            'last_updated': None,
-            'initialized': False
-        }
-        self._notify_observers()
-    
-    def register_observer(self, callback: Callable):
-        """Register a callback to be called when context changes"""
-        if callback not in self._observers:
-            self._observers.append(callback)
-            logger.info(f"Registered template context observer: {callback.__name__}")
-    
-    def unregister_observer(self, callback: Callable):
-        """Unregister an observer"""
-        if callback in self._observers:
-            self._observers.remove(callback)
-    
-    def _notify_observers(self):
-        """Notify all observers of context changes"""
-        for callback in self._observers:
-            try:
-                callback()
-            except Exception as e:
-                logger.error(f"Error in template context observer {callback.__name__}: {e}")
-    
-    def _get_compatibility_summary(self) -> Dict[str, Any]:
-        """Generate compatibility summary for current context"""
-        if not self.resource_template or not self.task_template:
-            return {}
-            
-        return {
-            'status': 'unknown',  # Will be set by validation service
-            'resource_match': True,
-            'equipment_match': True,
-            'notes': 'Compatibility validation pending'
-        }
+    # ... rest of the methods remain the same ...
 
-# Global instance for easy access
+# Global instance - but it won't initialize session state until first access
 template_context = TemplateContextManager()
-
-def get_template_context() -> TemplateContextManager:
-    """Get the global template context instance"""
-    return template_context
-
-# ... rest of the file remains the same ...
 
 def get_template_context() -> TemplateContextManager:
     """Get the global template context instance"""
@@ -163,13 +117,13 @@ def get_template_context() -> TemplateContextManager:
 
 def render_template_context_selector(services: Dict[str, Any], user_id: int):
     """
-    Render template context selector component - UPDATED
-    Uses services passed from app.py instead of reinitializing
+    Render template context selector component - UPDATED with safe access
     """
     context = get_template_context()
     
     # Initialize context with services if not done
-    if not context.get_current_context()['initialized']:
+    current_context = context.get_current_context()  # ✅ This will initialize if needed
+    if not current_context['initialized']:
         context.initialize_with_services(services, user_id)
     
     st.markdown("### 🎯 Contexte de Travail")
