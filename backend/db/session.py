@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 # --------------------------
 # Database URL from Supabase secrets.toml 
 try:
-    DATABASE_URL  = "postgresql://postgres:ABDOABDOABDO@db.vigyqbzjtpqjzlpuyzvf.supabase.co:5432/postgres"
+    DATABASE_URL  = st.secrets["SUPABASE_URL"]  # Hard-coded call to secrets.toml
 # --------------------------
-    # st.secrets["SUPABASE_URL"]  # Hard-coded call to secrets.toml
+    
 except KeyError:
     logger.error("❌ SUPABASE_URL not found in secrets.toml. Check Streamlit Cloud configuration.")
     DATABASE_URL = None
