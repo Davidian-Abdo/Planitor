@@ -33,8 +33,8 @@ def login_form_component():
     
     # Handle register
     if register_submit:
-        st.session_state['current_page'] = 'register'
-        st.rerun() 
+        st.switch_page("pages/register.py")
+        st.rerun()  
         
     # Handle login
     if login_submit:
