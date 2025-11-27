@@ -79,10 +79,7 @@ def registration_form_component() -> bool:
                     st.success("✅ Account created successfully! You can now log in.")
                     
                     # ✅ Correct page redirection
-                    if st.button("🔐 Login Now"):
-                        st.session_state.current_page = "login"
-                        st.rerun()
-                    
+                    st.session_state['current_page'] = "login"
                     return True
                 else:
                     st.error("❌ Failed to save user to database")
