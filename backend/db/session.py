@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 # Database URL from Supabase secrets.toml 
 try:
     import os
-    SUPABASE_URL = os.environ.get("SUPABASE_URL")  
+    DATABASE_URL = os.environ.get("SUPABASE_URL")  
 # --------------------------
     
 except KeyError:
