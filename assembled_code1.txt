@@ -122,6 +122,7 @@ class ConstructionApp:
         These services are request-scoped and not stored in session state
         """
         try:
+            from backend.services.user_service import UserService
             from backend.services.project_service import ProjectService
             from backend.services.user_task_service import UserTaskService
             from backend.services.resource_service import ResourceService
@@ -132,6 +133,7 @@ class ConstructionApp:
             from backend.services.monitoring_service import MonitoringService
             
             services = {
+                'user_service': UserService(db_session),  
                 'project_service': ProjectService(db_session),
                 'task_service': UserTaskService(db_session),
                 'resource_service': ResourceService(db_session),
@@ -533,7 +535,7 @@ st.set_page_config(
     layout="centered"
 )
 
-def main():
+def main(): 
     st.title("👤 Create Account")
     st.markdown("Join the Construction Project Planner platform")
     
@@ -541,12 +543,295 @@ def main():
         st.balloons()
         st.success("Account created successfully! You can now log in.")
         if st.button("Go to Login"):
-            st.switch_page("pages/0_🔐_Login.py")
+            st.switch_page("pages/login.py")
 
 if __name__ == "__main__":
     main()
 
 # ====== End of pages/register.py ======
+
+
+
+# ====== Begin of frontend/components/auth/registration_form.py ======
+
+"""
+Enhanced User registration form compatible with SessionManager
+"""
+import streamlit as st
+from backend.auth.auth_manager import AuthManager
+
+def registration_form_component() -> bool:
+    """CORRECTED registration form with proper session management"""
+    with st.form("registration_form"):
+        st.subheader("👤 Create New Account")
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            full_name = st.text_input("Full Name", placeholder="Enter your full name")
+            username = st.text_input("Username", placeholder="Choose a username")
+        with col2:
+            email = st.text_input("Email", placeholder="your.email@company.com")
+            role = st.selectbox("Role", ["Admin", "Directeur", "Ingénieur"], 
+                              help="Ingénieur: Basic user, Directeurr: Manager access, Admin: Full system access")
+        
+        password = st.text_input("Password", type="password", 
+                               placeholder="Create a strong password")
+        confirm_password = st.text_input("Confirm Password", type="password", 
+                                       placeholder="Confirm your password")
+        
+        agree_terms = st.checkbox("I agree to the terms and conditions")
+        
+        register_clicked = st.form_submit_button("Create Account", type="primary")
+    
+    if register_clicked:
+        # Validate inputs
+        if not all([full_name, username, email, password, confirm_password]):
+            st.error("Please fill in all required fields")
+            return False
+        
+        if password != confirm_password:
+            st.error("Passwords do not match")
+            return False
+        
+        # ✅ Use enhanced password validation
+        from backend.utils.validators import Validator
+        is_valid, errors = Validator.validate_user_data({
+            'username': username,
+            'email': email,
+            'password': password
+        })
+        
+        if not is_valid:
+            for error in errors:
+                st.error(f"❌ {error}")
+            return False
+        
+        if not agree_terms:
+            st.error("Please agree to the terms and conditions")
+            return False
+        
+        # ✅ CORRECTED: Use single database session
+        try:
+            from backend.db.session import get_db_session
+            db_session = get_db_session()
+            
+            # Create AuthManager with the session
+            from backend.auth.auth_manager import AuthManager
+            auth_manager = AuthManager(db_session)
+            
+            # Attempt registration
+            result = auth_manager.register_user(
+                username=username,
+                email=email,
+                password=password,
+                full_name=full_name,
+                role=role  # ✅ Use exact role values
+            )
+            
+            if result:
+                # ✅ Commit the transaction
+                from backend.db.session import safe_commit
+                if safe_commit(db_session, "User registration"):
+                    st.success("✅ Account created successfully! You can now log in.")
+                    
+                    # ✅ Correct page redirection
+                    if st.button("🔐 Login Now"):
+                        st.session_state.current_page = "login"
+                        st.rerun()
+                    
+                    return True
+                else:
+                    st.error("❌ Failed to save user to database")
+                    return False
+            else:
+                st.error("❌ Username or email already exists")
+                return False
+                
+        except Exception as e:
+            st.error(f"❌ Registration failed: {str(e)}")
+            # ✅ Ensure session is properly closed
+            try:
+                db_session.rollback()
+                db_session.close()
+            except:
+                pass
+            return False
+        finally:
+            try:
+                db_session.close()
+            except:
+                pass
+    
+    return False
+
+# ====== End of frontend/components/auth/registration_form.py ======
+
+
+
+# ====== Begin of backend/db/session.py ======
+
+"""
+backend/db/session.py
+Production-ready SQLAlchemy session manager for Planitor (Supabase-friendly).
+
+Behavior:
+ - Read DB url from (in order): os.environ["SUPABASE_URL"], streamlit secrets ("SUPABASE_URL"), .env via python-dotenv if present.
+ - Create engine lazily (so tools like alembic can import without crashing in some contexts).
+ - Provide `engine` (may be None until created), `get_engine()` to ensure creation, `SessionLocal`, and helpers.
+ - Use sqlalchemy.text(...) when executing raw SQL checks.
+"""
+
+from __future__ import annotations
+import os
+import logging
+from typing import Optional
+from sqlalchemy import create_engine, text as sa_text
+from sqlalchemy.engine import Engine
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
+from sqlalchemy.orm import sessionmaker, Session as SessionType
+import streamlit as st
+
+logger = logging.getLogger(__name__)
+
+# ---------- Configuration & URL resolution ----------
+try:
+    DATABASE_URL = os.environ.get("SUPABASE_URL")
+    if DATABASE_URL :
+        logger.debug("Using SUPABASE_URL from environment")
+
+except Exception:
+        logger.debug("could not get SUPABASE_URL")
+    
+
+# module-level "engine" is created lazily by get_engine()
+_engine: Optional[Engine] = None
+
+def get_engine() -> Engine:
+    """
+    Ensure and return a SQLAlchemy Engine.
+    This will create the engine on first call and raise a clear error if DB URL is missing.
+    """
+    global _engine
+    if _engine is not None:
+        return _engine
+
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "Database URL is not configured. "
+            "Set SUPABASE_URL environment variable or Streamlit secrets (SUPABASE_URL)."
+        )
+
+    # Recommended: explicit connect timeout and minimal pool tuning for serverless hosts
+    connect_args = {}
+    # If pg driver supports it, set a short connect timeout to fail faster
+    # (psycopg2 uses connect_timeout param in dsn)
+    try:
+        # SQLAlchemy will pass connect_args to DBAPI connect; this is harmless if unsupported.
+        connect_args = {"connect_timeout": 10}
+    except Exception:
+        connect_args = {}
+
+    try:
+        _engine = create_engine(
+            DATABASE_URL,
+            echo=False,
+            pool_pre_ping=True,
+            pool_size=5,        # conservative defaults for hosted environments
+            max_overflow=10,
+            connect_args=connect_args,
+            future=True
+        )
+        # quick smoke test: don't execute heavy queries, just a connection check
+        with _engine.connect() as conn:
+            conn.execute(sa_text("SELECT 1"))
+        logger.info("✅ Database engine created and connection checked")
+        return _engine
+
+    except OperationalError as e:
+        logger.error("❌ OperationalError while creating engine: %s", e)
+        # keep _engine as None so callers can decide what to do
+        raise
+    except SQLAlchemyError as e:
+        logger.error("❌ SQLAlchemyError while creating engine: %s", e)
+        raise
+
+# Provide module-level alias for callers that expect `engine` at import time.
+# We attempt to create it immediately (useful for production), but do not hide errors.
+try:
+    # Try to create engine immediately if URL is present (common on deployed hosts).
+    if _engine is None:
+        _engine = get_engine()
+except Exception as exc:
+    # Log the failure but do not crash import time with obscure stack traces.
+    # Higher-level code (app init or alembic) should catch and handle.
+    logger.warning("Engine not created at import: %s", exc)
+    _engine = None
+
+# ---------------- Session factory ----------------
+# SessionLocal is bound if engine exists; if engine is None, callers should call get_engine() first.
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, future=True, bind=_engine)  # type: ignore[arg-type]
+
+def get_db_session() -> SessionType:
+    """
+    Return a new SQLAlchemy Session. Ensures engine exists first.
+    Usage:  session = get_db_session()
+    """
+    try:
+        if _engine is None:
+            # attempt to create engine now (will raise a clear error if missing)
+            get_engine()
+            # rebind SessionLocal to the engine we just created
+            global SessionLocal
+            SessionLocal.configure(bind=_engine)  # type: ignore[attr-defined]
+        return SessionLocal()
+    except Exception as e:
+        logger.error("❌ Error creating database session: %s", e)
+        raise
+
+# ---------- Transaction helpers ----------
+def safe_commit(session: SessionType, context: str = "Operation") -> bool:
+    try:
+        session.commit()
+        logger.debug("✅ Commit succeeded (%s)", context)
+        return True
+    except Exception as e:
+        logger.error("❌ Commit failed (%s): %s", context, e)
+        try:
+            session.rollback()
+            logger.debug("🔄 Rollback executed after failed commit (%s)", context)
+        except Exception as rollback_err:
+            logger.error("❌ Rollback failed (%s): %s", context, rollback_err)
+        return False
+
+def safe_rollback(session: SessionType, context: str = "Operation") -> bool:
+    try:
+        session.rollback()
+        logger.debug("🔄 Rollback succeeded (%s)", context)
+        return True
+    except Exception as e:
+        logger.error("❌ Rollback failed (%s): %s", context, e)
+        return False
+
+# ---------- Optional helpers ----------
+def init_database() -> bool:
+    """
+    Optional initialization — checks the DB connectivity and optionally ensures tables exist.
+    Returns True if connection is verified.
+    """
+    try:
+        # Create a session (ensures engine exists)
+        with get_db_session() as s:
+            s.execute(sa_text("SELECT 1"))   # explicit sqlalchemy.text()
+        logger.info("✅ Database connection successful")
+        return True
+    except Exception as e:
+        logger.error("❌ Database initialization failed: %s", e)
+        raise
+
+
+
+
+# ====== End of backend/db/session.py ======
 
 
 
@@ -635,6 +920,12 @@ class AuthManager:
         try:
             logger.info(f"Registration attempt for user: {username}")
             
+            valid_roles = ["admin", "ingénieur", "directeur"]
+            # ✅ Validate role
+            if role.lower() not in valid_roles:
+                logger.error(f"Invalid role provided: {role}")
+                return None
+
             # Create new user
             user = self.user_service.create_user(
                 username=username,
@@ -878,94 +1169,4 @@ class AuthManager:
     
 
 # ====== End of backend/auth/auth_manager.py ======
-
-
-
-# ====== Begin of frontend/components/auth/registration_form.py ======
-
-"""
-Enhanced User registration form compatible with SessionManager
-"""
-import streamlit as st
-from backend.auth.auth_manager import AuthManager
-
-def registration_form_component() -> bool:
-    """Enhanced registration form with proper session management"""
-    with st.form("registration_form"):
-        st.subheader("👤 Create New Account")
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            full_name = st.text_input("Full Name", placeholder="Enter your full name")
-            username = st.text_input("Username", placeholder="Choose a username")
-        with col2:
-            email = st.text_input("Email", placeholder="your.email@company.com")
-            role = st.selectbox("Role", ["Ingénieur", "Directeur", "Admin"], 
-                              help="Ingénieur: Basic user, Directeur: Manager access, Admin: Full system access")
-        
-        password = st.text_input("Password", type="password", 
-                               placeholder="Create a strong password")
-        confirm_password = st.text_input("Confirm Password", type="password", 
-                                       placeholder="Confirm your password")
-        
-        agree_terms = st.checkbox("I agree to the terms and conditions")
-        
-        register_clicked = st.form_submit_button("Create Account", type="primary")
-    
-    if register_clicked:
-        # Validate inputs
-        if not all([full_name, username, email, password, confirm_password]):
-            st.error("Please fill in all required fields")
-            return False
-        
-        if password != confirm_password:
-            st.error("Passwords do not match")
-            return False
-        
-        # ✅ Use enhanced password validation from SecurityConfig
-        from backend.auth_config import validate_password_strength
-        password_validation = validate_password_strength(password)
-        if not password_validation['is_valid']:
-            st.error("Password does not meet security requirements:")
-            for issue in password_validation['issues']:
-                st.error(f"• {issue}")
-            return False
-        
-        if not agree_terms:
-            st.error("Please agree to the terms and conditions")
-            return False
-        
-        # ✅ Enhanced registration with proper error handling
-        try:
-            from backend.db.session import get_db_session
-            with get_db_session() as db_session:
-                auth_manager = AuthManager(db_session)
-                
-                result = auth_manager.register_user(
-                    username=username,
-                    email=email,
-                    password=password,
-                    full_name=full_name,
-                    role=role.lower()  # ✅ Normalize role case
-                )
-                
-                if result:
-                    st.success("✅ Account created successfully! You can now log in.")
-                    
-                    # ✅ Optional: Auto-login after registration
-                    if st.button("🔐 Login Now"):
-                        st.switch_page("pages/login.py")
-                    
-                    return True
-                else:
-                    st.error("❌ Username or email already exists")
-                    return False
-                    
-        except Exception as e:
-            st.error(f"❌ Registration failed: {str(e)}")
-            return False
-    
-    return False
-
-# ====== End of frontend/components/auth/registration_form.py ======
 

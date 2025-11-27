@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 # ---------- Configuration & URL resolution ----------
 try:
-    DATABASE_URL = os.environ.get("SUPABASE_URL")
+    DATABASE_URL = "postgresql://postgres.vigyqbzjtpqjzlpuyzvf:ABDOABDOABDO@aws-1-eu-west-1.pooler.supabase.com:5432/postgres"
+    #DATABASE_URL = os.environ.get("SUPABASE_URL")
     if DATABASE_URL :
         logger.debug("Using SUPABASE_URL from environment")
 
