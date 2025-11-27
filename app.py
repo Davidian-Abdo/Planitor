@@ -301,6 +301,15 @@ class ConstructionApp:
             logger.error(f"❌ Login page error: {e}")
             self._show_error_page(e)
 
+
+    def _render_register_interface(self):
+        """Render register page for unauthenticated users"""
+        try:
+            from pages.register import show as show_register_page
+            show_register_page()
+        except Exception as e:
+            logger.error(f"❌ Register page error: {e}")
+            self._show_error_page(e)
     # ------------------- Error Handling -------------------
 
     def _show_error_page(self, error: Exception):
@@ -353,8 +362,15 @@ class ConstructionApp:
             if self._is_authenticated():
                 self._render_authenticated_interface()
             else:
-                self._render_login_interface()
                 
+
+                current_page = st.session_state.get('current_page', 'login')
+            
+                if current_page == 'register':
+                    self._render_register_interface()  # You need to create this
+                else:
+                    self._render_login_interface()
+
             # Optional debug information
             self._show_widget_debug_info()
                 

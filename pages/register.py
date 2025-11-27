@@ -10,15 +10,12 @@ st.set_page_config(
     layout="centered"
 )
 
-def main(): 
+def show(): 
     st.title("👤 Create Account")
     st.markdown("Join the Construction Project Planner platform")
     
     if registration_form_component():
         st.balloons()
         st.success("Account created successfully! You can now log in.")
-        if st.button("Go to Login"):
-            st.switch_page("pages/login.py")
-
-if __name__ == "__main__":
-    main()
+        if st.button("Go to Login"): 
+            st.session_state['current_page'] = 'login'
