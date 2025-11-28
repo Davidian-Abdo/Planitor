@@ -61,7 +61,9 @@ if __name__ == "__main__":
          "backend/services/resource_service.py", 
          "backend/db/repositories/task_repo.py",
          "backend/db/repositories/resource_repo.py",
-         "frontend/helpers/template_context.py"
+         "frontend/helpers/template_context.py",
+         "frontend/components/data_tables/task_table.py",
+         "frontend/components/data_tables/worker_table.py",
         #"frontend/pages/generate_schedule.py",
          # "backend/services/scheduling_service.py",
           # "backend/db/repositories/schedule_repo.py",

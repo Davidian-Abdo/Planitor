@@ -1,10 +1,12 @@
 """
-PROFESSIONAL Template Manager - REFACTORED & MODULAR
+PROFESSIONAL Template Manager - COMPLETE & FIXED VERSION
 """
 import streamlit as st
 import logging
 from sqlalchemy.orm import Session
-from typing import Dict , Any
+from typing import Dict, Any
+
+# Import all tab components
 from frontend.components.tabs.resource_library import render_resource_templates_tab
 from frontend.components.tabs.task_library import render_task_library_tab
 from frontend.components.tabs.template_association import render_template_associations_tab
@@ -12,26 +14,28 @@ from frontend.components.tabs.template_association import render_template_associ
 logger = logging.getLogger(__name__)
 
 def show(db_session: Session, services: Dict[str, Any], user_id: int):
-    """DEBUG: Template manager with detailed error tracking"""
+    """FIXED: Complete template manager with all three tabs working"""
     try:
         st.title("🏗️ Gestionnaire de Templates Unifié")
         
-        # ✅ DEBUG: Check session state before anything else
-        st.write("🔍 DEBUG: Session state keys:", list(st.session_state.keys()))
-        
-        # ✅ DEBUG: Check if template_context exists
-        if 'template_context' in st.session_state:
-            st.write("✅ DEBUG: template_context exists in session state")
-        else:
-            st.write("❌ DEBUG: template_context MISSING from session state")
-            # Initialize it immediately
-            st.session_state.template_context = {
-                'resource_template': None,
-                'task_template': None,
-                'last_updated': None,
-                'initialized': False
-            }
-            st.write("✅ DEBUG: template_context created in session state")
+        # ✅ DEBUG: Check session state
+        debug_expander = st.expander("🔍 Debug Info", expanded=False)
+        with debug_expander:
+            st.write("Session state keys:", list(st.session_state.keys()))
+            
+            if 'template_context' in st.session_state:
+                st.write("✅ template_context exists")
+                st.json(st.session_state.template_context)
+            else:
+                st.write("❌ template_context MISSING")
+                # Initialize immediately
+                st.session_state.template_context = {
+                    'resource_template': None,
+                    'task_template': None,
+                    'last_updated': None,
+                    'initialized': False
+                }
+                st.write("✅ template_context created")
         
         # Load professional CSS
         load_template_manager_css()
@@ -47,13 +51,41 @@ def show(db_session: Session, services: Dict[str, Any], user_id: int):
             "🔗 Associations & Validation"
         ])
 
-        # ----------------- Tab 1: Unified Resource Templates -----------------
+        # ----------------- Tab 1: Resource Templates -----------------
         with tab1:
-            st.write("🔍 DEBUG: Before rendering resource tab")
-            render_resource_templates_tab(services, user_id, db_session)
-            st.write("🔍 DEBUG: After rendering resource tab")
+            st.write("🔍 Rendering Resource Library Tab...")
+            try:
+                render_resource_templates_tab(services, user_id, db_session)
+                st.write("✅ Resource Library Tab Rendered Successfully")
+            except Exception as e:
+                st.error(f"❌ Error in resource tab: {e}")
+                logger.error(f"Resource tab error: {e}")
+                import traceback
+                st.code(traceback.format_exc())
         
-        # ... rest of the tabs ...
+        # ----------------- Tab 2: Task Library -----------------
+        with tab2:
+            st.write("🔍 Rendering Task Library Tab...")
+            try:
+                render_task_library_tab(services, user_id, db_session)
+                st.write("✅ Task Library Tab Rendered Successfully")
+            except Exception as e:
+                st.error(f"❌ Error in task tab: {e}")
+                logger.error(f"Task tab error: {e}")
+                import traceback
+                st.code(traceback.format_exc())
+        
+        # ----------------- Tab 3: Template Associations -----------------
+        with tab3:
+            st.write("🔍 Rendering Template Associations Tab...")
+            try:
+                render_template_associations_tab(services, user_id, db_session)
+                st.write("✅ Template Associations Tab Rendered Successfully")
+            except Exception as e:
+                st.error(f"❌ Error in associations tab: {e}")
+                logger.error(f"Associations tab error: {e}")
+                import traceback
+                st.code(traceback.format_exc())
 
     except Exception as e:
         logger.error(f"❌ Error in templates manager page: {e}")

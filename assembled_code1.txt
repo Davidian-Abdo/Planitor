@@ -410,13 +410,27 @@ from frontend.components.tabs.template_association import render_template_associ
 
 logger = logging.getLogger(__name__)
 
-def show(db_session: Session,services: Dict[str, Any], user_id: int):
-    """REFACTORED Template manager main entry point"""
+def show(db_session: Session, services: Dict[str, Any], user_id: int):
+    """DEBUG: Template manager with detailed error tracking"""
     try:
         st.title("🏗️ Gestionnaire de Templates Unifié")
         
-        # ✅ FIXED: Do NOT store db_session in session state
-        # Database sessions are request-scoped and should not persist
+        # ✅ DEBUG: Check session state before anything else
+        st.write("🔍 DEBUG: Session state keys:", list(st.session_state.keys()))
+        
+        # ✅ DEBUG: Check if template_context exists
+        if 'template_context' in st.session_state:
+            st.write("✅ DEBUG: template_context exists in session state")
+        else:
+            st.write("❌ DEBUG: template_context MISSING from session state")
+            # Initialize it immediately
+            st.session_state.template_context = {
+                'resource_template': None,
+                'task_template': None,
+                'last_updated': None,
+                'initialized': False
+            }
+            st.write("✅ DEBUG: template_context created in session state")
         
         # Load professional CSS
         load_template_manager_css()
@@ -434,19 +448,17 @@ def show(db_session: Session,services: Dict[str, Any], user_id: int):
 
         # ----------------- Tab 1: Unified Resource Templates -----------------
         with tab1:
+            st.write("🔍 DEBUG: Before rendering resource tab")
             render_resource_templates_tab(services, user_id, db_session)
+            st.write("🔍 DEBUG: After rendering resource tab")
         
-        # ----------------- Tab 2: Task Library -----------------
-        with tab2:
-            render_task_library_tab(services, user_id, db_session)
-        
-        # ----------------- Tab 3: Template Associations -----------------
-        with tab3:
-            render_template_associations_tab(services, user_id, db_session)
+        # ... rest of the tabs ...
 
     except Exception as e:
         logger.error(f"❌ Error in templates manager page: {e}")
-        st.error("❌ Erreur lors du chargement du gestionnaire de templates")
+        st.error(f"❌ Erreur lors du chargement du gestionnaire de templates: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 
 
 def load_template_manager_css():
@@ -2892,7 +2904,7 @@ class ResourceRepository:
 # ====== Begin of frontend/helpers/template_context.py ======
 
 """
-Template Context Manager for unified template state management - UPDATED
+FIXED Template Context Manager with LAZY initialization
 """
 
 import streamlit as st
@@ -2903,14 +2915,15 @@ logger = logging.getLogger(__name__)
 
 class TemplateContextManager:
     """
-    Professional template context manager for unified state management
-    UPDATED: Works with new service pattern from app.py
+    FIXED: Lazy template context manager that doesn't access session state on import
     """
     
     def __init__(self):
         self._observers: List[Callable] = []
-        
-        # Initialize session state for templates if not exists
+        # ✅ REMOVE initialization from __init__ - do it lazily
+    
+    def _ensure_initialized(self):
+        """Ensure template context is initialized in session state - LAZY"""
         if 'template_context' not in st.session_state:
             st.session_state.template_context = {
                 'resource_template': None,
@@ -2918,29 +2931,36 @@ class TemplateContextManager:
                 'last_updated': None,
                 'initialized': False
             }
+            logger.info("✅ Template context initialized in session state")
     
     @property
     def resource_template(self) -> Optional[Dict[str, Any]]:
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         return st.session_state.template_context['resource_template']
     
     @resource_template.setter
     def resource_template(self, template: Optional[Dict[str, Any]]):
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         st.session_state.template_context['resource_template'] = template
         st.session_state.template_context['last_updated'] = 'resource'
         self._notify_observers()
     
     @property
     def task_template(self) -> Optional[Dict[str, Any]]:
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         return st.session_state.template_context['task_template']
     
     @task_template.setter
     def task_template(self, template: Optional[Dict[str, Any]]):
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         st.session_state.template_context['task_template'] = template
         st.session_state.template_context['last_updated'] = 'task'
         self._notify_observers()
     
     def get_current_context(self) -> Dict[str, Any]:
         """Get complete context with validation state"""
+        self._ensure_initialized()  # ✅ Initialize only when accessed
+        
         context = {
             'resource_template': self.resource_template,
             'task_template': self.task_template,
@@ -2957,10 +2977,13 @@ class TemplateContextManager:
     
     def is_ready(self) -> bool:
         """Check if both resource and task templates are set."""
+        self._ensure_initialized()  # ✅ Initialize only when accessed
         return bool(self.resource_template and self.task_template)
     
     def initialize_with_services(self, services: Dict[str, Any], user_id: int):
         """Initialize context with services from app.py"""
+        self._ensure_initialized()  # ✅ Initialize only when accessed
+        
         try:
             if st.session_state.template_context.get('initialized'):
                 return
@@ -2988,48 +3011,9 @@ class TemplateContextManager:
         except Exception as e:
             logger.error(f"❌ Error initializing template context with services: {e}")
     
-    def clear_context(self):
-        """Clear all template context"""
-        st.session_state.template_context = {
-            'resource_template': None,
-            'task_template': None,
-            'last_updated': None,
-            'initialized': False
-        }
-        self._notify_observers()
-    
-    def register_observer(self, callback: Callable):
-        """Register a callback to be called when context changes"""
-        if callback not in self._observers:
-            self._observers.append(callback)
-            logger.info(f"Registered template context observer: {callback.__name__}")
-    
-    def unregister_observer(self, callback: Callable):
-        """Unregister an observer"""
-        if callback in self._observers:
-            self._observers.remove(callback)
-    
-    def _notify_observers(self):
-        """Notify all observers of context changes"""
-        for callback in self._observers:
-            try:
-                callback()
-            except Exception as e:
-                logger.error(f"Error in template context observer {callback.__name__}: {e}")
-    
-    def _get_compatibility_summary(self) -> Dict[str, Any]:
-        """Generate compatibility summary for current context"""
-        if not self.resource_template or not self.task_template:
-            return {}
-            
-        return {
-            'status': 'unknown',  # Will be set by validation service
-            'resource_match': True,
-            'equipment_match': True,
-            'notes': 'Compatibility validation pending'
-        }
+    # ... rest of the methods remain the same ...
 
-# Global instance for easy access
+# Global instance - but it won't initialize session state until first access
 template_context = TemplateContextManager()
 
 def get_template_context() -> TemplateContextManager:
@@ -3038,13 +3022,13 @@ def get_template_context() -> TemplateContextManager:
 
 def render_template_context_selector(services: Dict[str, Any], user_id: int):
     """
-    Render template context selector component - UPDATED
-    Uses services passed from app.py instead of reinitializing
+    Render template context selector component - UPDATED with safe access
     """
     context = get_template_context()
     
     # Initialize context with services if not done
-    if not context.get_current_context()['initialized']:
+    current_context = context.get_current_context()  # ✅ This will initialize if needed
+    if not current_context['initialized']:
         context.initialize_with_services(services, user_id)
     
     st.markdown("### 🎯 Contexte de Travail")
@@ -3185,4 +3169,1845 @@ def _validate_template_compatibility(context: TemplateContextManager, services: 
         st.error(f"❌ Erreur lors de la validation: {e}")
 
 # ====== End of frontend/helpers/template_context.py ======
+
+
+
+# ====== Begin of frontend/components/data_tables/task_table.py ======
+
+"""
+OPTIMIZED Task Table Component - Civil Engineering Scheduling
+Professional, simplified, and maintainable with widget manager
+"""
+import streamlit as st
+import pandas as pd
+import json
+from typing import List, Dict, Optional, Any
+import logging
+from backend.utils.widget_manager import widget_manager
+
+from frontend.helpers.template_context import template_context
+
+logger = logging.getLogger(__name__)
+
+# French column mapping
+FRENCH_COLUMNS = {
+    "base_task_id": "ID Tâche", "name": "Nom", "discipline": "Discipline", 
+    "sub_discipline": "Sous-Discipline", "resource_type": "Type Ressource",
+    "task_type": "Type", "base_duration": "Durée Base", 
+    "unit_duration": "Durée Unitaire", "duration_calculation_method": "Méthode Calcul",
+    "min_crews_needed": "Équipes Min", "max_crews_allowed": "Équipes Max",
+    "min_equipment_needed": "Équipements Min", "max_equipment_allowed": "Équipements Max",
+    "predecessors": "Prédécesseurs", "repeat_on_floor": "Répétition Étage",
+    "delay": "Délai", "weather_sensitive": "Sensible Météo", 
+    "quality_gate": "Point Contrôle", "included": "Incluse"
+}
+
+# Duration calculation methods
+DURATION_METHODS = {
+    "fixed_duration": "Durée Fixe",
+    "quantity_based": "Basé sur la Quantité", 
+    "resource_calculation": "Calcul par Ressources"
+}
+
+
+def render_tasks_table(tasks: List[Dict], task_service, user_id: int, available_resources: Dict[str, List[Dict]] = None, template_service=None):
+    """Main task table with essential context integration"""
+    # Show context status
+    if template_context.is_ready():
+        resource = template_context.resource_template
+        task = template_context.task_template
+        st.success(f"🎯 Contexte: {resource['name']} + {task.get('name', 'Sans nom')}")
+    
+    # Initialize state
+    if 'task_form_state' not in st.session_state:
+        st.session_state.task_form_state = {'mode': None, 'current_task': None}
+    
+    state = st.session_state.task_form_state
+    
+    # Apply filters
+    filtered_tasks = _render_task_filters(tasks)
+    
+    # Show statistics
+    _render_statistics(tasks, filtered_tasks)
+    
+    # Handle form mode
+    if state['mode']:
+        _render_task_form(state, tasks, task_service, user_id, available_resources, template_service)
+        return
+    
+    # Main table interface
+    _render_table_interface(filtered_tasks, task_service, user_id)
+
+def _render_statistics(all_tasks: List[Dict], filtered_tasks: List[Dict]):
+    """Essential statistics"""
+    total_count = len(all_tasks)
+    filtered_count = len(filtered_tasks)
+    included_count = len([t for t in filtered_tasks if t.get('included', True)])
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("📋 Tâches", f"{filtered_count}/{total_count}")
+    col2.metric("✅ Incluses", included_count)
+    col3.metric("🎯 Contexte", "✅" if template_context.is_ready() else "⚠️")
+
+def _render_task_filters(tasks: List[Dict]) -> List[Dict]:
+    """Essential filters"""
+    if not tasks:
+        return []
+    
+    disciplines = sorted(set(t.get('discipline', '') for t in tasks if t.get('discipline')))
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        selected_discipline = st.selectbox(
+            "Discipline",
+            options=['Toutes'] + disciplines,
+            key=widget_manager.generate_key("filter_discipline", "task_table")
+        )
+    with col2:
+        included_only = st.checkbox("Afficher seulement les incluses", value=True,
+                                  key=widget_manager.generate_key("filter_included", "task_table"))
+    
+    # Apply filters
+    filtered = tasks
+    if selected_discipline != 'Toutes':
+        filtered = [t for t in filtered if t.get('discipline') == selected_discipline]
+    if included_only:
+        filtered = [t for t in filtered if t.get('included', True)]
+    
+    return filtered
+
+def _render_table_interface(tasks: List[Dict], task_service, user_id: int):
+    """Main table interface"""
+    selected_task = _render_task_selection(tasks)
+    
+    # Action buttons
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("➕ Nouvelle Tâche", use_container_width=True):
+            st.session_state.task_form_state = {'mode': 'new', 'current_task': None}
+            st.rerun()
+    
+    with col2:
+        disabled = selected_task is None
+        if st.button("✏️ Modifier", use_container_width=True, disabled=disabled):
+            st.session_state.task_form_state = {'mode': 'edit', 'current_task': selected_task}
+            st.rerun()
+    
+    with col3:
+        if st.button("📋 Dupliquer", use_container_width=True, disabled=disabled):
+            st.session_state.task_form_state = {'mode': 'duplicate', 'current_task': selected_task}
+            st.rerun()
+    
+    with col4:
+        if st.button("🗑️ Supprimer", use_container_width=True, disabled=disabled):
+            _delete_task(selected_task, tasks, task_service, user_id)
+            st.rerun()
+    
+    # Context actions
+    if template_context.is_ready() and selected_task:
+        st.markdown("---")
+        if st.button("🔗 Tester Compatibilité", use_container_width=True):
+            _test_compatibility(selected_task, template_service)
+    
+    # Data table
+    _render_data_table(tasks)
+
+def _test_compatibility(task: Dict, template_service=None):
+    """Test task compatibility with current context"""
+    try:
+        if template_service is None:
+            st.error("❌ Service de template non disponible")
+            return
+        
+        validation = template_service.validate_template_compatibility(
+            template_context.resource_template,
+            task
+        )
+        
+        if validation['compatible']:
+            st.success("✅ Tâche compatible avec le contexte!")
+        else:
+            st.error("❌ Problèmes de compatibilité")
+            
+        # Show issues
+        if validation['issues']:
+            st.write("**Problèmes:**")
+            for issue in validation['issues']:
+                st.write(f"- {issue}")
+                
+    except Exception as e:
+        st.error(f"❌ Erreur: {e}")
+
+def _render_task_selection(tasks: List[Dict]) -> Optional[Dict]:
+    """Task selection dropdown"""
+    if not tasks:
+        st.info("📭 Aucune tâche disponible")
+        return None
+        
+    options = {f"{t.get('name', 'Sans nom')} ({t.get('base_task_id', 'N/A')})": t for t in tasks}
+    
+    selected = st.selectbox(
+        "Sélectionner une tâche:",
+        options=[''] + list(options.keys()),
+        key=widget_manager.generate_key("task_selector", "task_table")
+    )
+    
+    if selected and selected in options:
+        return options[selected]
+    
+    return None
+
+def _render_data_table(tasks: List[Dict]):
+    """Data table display"""
+    if not tasks:
+        st.info("📭 Aucune tâche à afficher")
+        return
+    
+    df = _tasks_to_dataframe(tasks)
+    
+    edited_df = st.data_editor(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Incluse": st.column_config.CheckboxColumn("Incluse"),
+            "Durée Base": st.column_config.NumberColumn("Durée (jours)", min_value=1),
+            "Équipes Min": st.column_config.NumberColumn("Équipes Min", min_value=1)
+        },
+        key=widget_manager.generate_key("task_data_editor", "task_table")
+    )
+    
+    if st.button("💾 Sauvegarder Modifications", use_container_width=True):
+        _save_table_changes(edited_df, tasks)
+        st.success("✅ Modifications sauvegardées!")
+        st.rerun()
+
+def _tasks_to_dataframe(tasks: List[Dict]) -> pd.DataFrame:
+    """Convert tasks to DataFrame"""
+    if not tasks:
+        return pd.DataFrame()
+    
+    display_data = []
+    for task in tasks:
+        row = {}
+        for eng_col, fr_col in FRENCH_COLUMNS.items():
+            if eng_col in task:
+                value = task[eng_col]
+                if eng_col == 'min_equipment_needed':
+                    equipment = task.get('min_equipment_needed', {})
+                    row[fr_col] = ", ".join([f"{k}({v})" for k, v in equipment.items()]) if equipment else "Aucun"
+                elif eng_col == 'predecessors':
+                    preds = task.get('predecessors', [])
+                    row[fr_col] = ", ".join(preds) if preds else "Aucun"
+                elif eng_col in ['repeat_on_floor', 'weather_sensitive', 'quality_gate', 'included']:
+                    row[fr_col] = '✅' if value else '❌'
+                else:
+                    row[fr_col] = value
+        
+        display_data.append(row)
+    
+    return pd.DataFrame(display_data)
+
+def _render_task_form(state: Dict, all_tasks: List[Dict], task_service, user_id: int, available_resources: Dict[str, List[Dict]] = None, template_service=None):
+    """Unified form for new/edit/duplicate operations"""
+    mode = state['mode']
+    task = state['current_task']
+    
+    st.markdown("---")
+    
+    if mode == 'edit':
+        title = f"✏️ Modification: {task.get('name')}"
+        submit_label = "💾 Sauvegarder"
+    elif mode == 'duplicate':
+        title = "📋 Duplication de Tâche"
+        submit_label = "✅ Créer Copie"
+        task = task.copy() if task else None
+    else:  # new
+        title = "➕ Nouvelle Tâche"
+        submit_label = "➕ Créer Tâche"
+        task = _get_default_task_template()
+    
+    st.subheader(title)
+    
+    with st.form(key=widget_manager.generate_key("task_form", "task_table")):
+        # Basic Information
+        task = _render_basic_info_section(task, mode)
+        
+        # Duration Calculation
+        task = _render_duration_section(task)
+        
+        # Resource Selection (Workers & Equipment)
+        task = _render_resource_selection_section(task, available_resources)
+        
+        # Predecessors
+        task = _render_predecessors_section(task, all_tasks)
+        
+        # Options
+        task = _render_options_section(task)
+        
+        # Form Actions
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.form_submit_button(submit_label, use_container_width=True,
+                                   key=widget_manager.generate_key("form_submit", "task_table")):
+                if _validate_task(task, all_tasks, mode):
+                    _save_task(task, all_tasks, task_service, user_id, mode)
+        
+        with col2:
+            if st.form_submit_button("❌ Annuler", use_container_width=True,
+                                   key=widget_manager.generate_key("form_cancel", "task_table")):
+                st.session_state.task_form_state = {'mode': None, 'current_task': None}
+                st.rerun()
+
+def _render_basic_info_section(task: Dict, mode: str) -> Dict:
+    """Essential task information"""
+    st.markdown("### 📝 Informations de Base")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        task["name"] = st.text_input(
+            "Nom de la tâche *", 
+            value=task.get("name", ""),
+            key=widget_manager.generate_key("task_name", "task_table")
+        )
+        task["discipline"] = st.text_input(
+            "Discipline *", 
+            value=task.get("discipline", ""),
+            key=widget_manager.generate_key("task_discipline", "task_table")
+        )
+        
+    with col2:
+        task["sub_discipline"] = st.text_input(
+            "Sous-discipline *", 
+            value=task.get("sub_discipline", ""),
+            key=widget_manager.generate_key("task_sub_discipline", "task_table")
+        )
+        task["resource_type"] = st.text_input(
+            "Type de ressource", 
+            value=task.get("resource_type", ""),
+            key=widget_manager.generate_key("task_resource_type", "task_table")
+        )
+    
+    task["task_type"] = st.selectbox(
+        "Type de tâche *",
+        options=["worker", "equipment", "parallel", "hybrid"],
+        index=["worker", "equipment", "parallel", "hybrid"].index(task.get("task_type", "execution")),
+        key=widget_manager.generate_key("task_task_type", "task_table")
+    )
+    
+    return task
+
+def _render_duration_section(task: Dict) -> Dict:
+    """Duration calculation with business logic"""
+    st.markdown("### ⏱️ Calcul de la Durée")
+    
+    # Method selection
+    current_method = task.get("duration_calculation_method", "fixed_duration")
+    method_display = DURATION_METHODS.get(current_method, current_method)
+    
+    selected_display = st.selectbox(
+        "Méthode de calcul *",
+        options=list(DURATION_METHODS.values()),
+        index=list(DURATION_METHODS.values()).index(method_display),
+        key=widget_manager.generate_key("duration_method", "task_table")
+    )
+    
+    # Get method key from display name
+    method = next(k for k, v in DURATION_METHODS.items() if v == selected_display)
+    task["duration_calculation_method"] = method
+    
+    # Dynamic fields based on method
+    col1, col2 = st.columns(2)
+    with col1:
+        if method == "fixed_duration":
+            task["base_duration"] = st.number_input(
+                "Durée fixe (jours) *", 
+                value=task.get("base_duration", 1), 
+                min_value=1,
+                key=widget_manager.generate_key("base_duration", "task_table")
+            )
+            task["unit_duration"] = 0
+        elif method == "quantity_based":
+            task["unit_duration"] = st.number_input(
+                "Durée par unité (jours) *", 
+                value=task.get("unit_duration", 1), 
+                min_value=1,
+                key=widget_manager.generate_key("unit_duration", "task_table")
+            )
+            task["base_duration"] = 0
+        else:  # resource_calculation
+            task["base_duration"] = 0
+            task["unit_duration"] = 0
+            st.info("✅ Durée calculée automatiquement selon les ressources disponibles")
+    
+    with col2:
+        task["min_crews_needed"] = st.number_input(
+            "Équipes minimum *", 
+            value=task.get("min_crews_needed", 1), 
+            min_value=1,
+            key=widget_manager.generate_key("min_crews", "task_table")
+        )
+        
+        task["max_crews_allowed"] = st.number_input(
+            "Équipes maximum", 
+            value=task.get("max_crews_allowed", task.get("min_crews_needed", 1)), 
+            min_value=task.get("min_crews_needed", 1),
+            key=widget_manager.generate_key("max_crews", "task_table")
+        )
+    
+    return task
+
+def _render_resource_selection_section(task: Dict, available_resources: Dict[str, List[Dict]] = None) -> Dict:
+    """Resource selection section - workers and equipment from resource templates"""
+    st.markdown("### 👥🛠️ Sélection des Ressources")
+    
+    # Initialize available resources if not provided
+    if available_resources is None:
+        available_resources = {'workers': [], 'equipment': []}
+    
+    workers = available_resources.get('workers', [])
+    equipment = available_resources.get('equipment', [])
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("#### 👥 Ouvriers Requis")
+        
+        if not workers:
+            st.warning("⚠️ Aucun ouvrier disponible. Configurez d'abord les ouvriers dans le modèle de ressources.")
+        else:
+            # Worker type selection
+            worker_options = {f"{w.get('name', '')} ({w.get('specialty', '')})": w for w in workers}
+            current_worker_type = task.get('resource_type', '')
+            
+            # Find matching worker
+            selected_worker_key = None
+            for key, worker_data in worker_options.items():
+                if worker_data.get('name') == current_worker_type or worker_data.get('specialty') == current_worker_type:
+                    selected_worker_key = key
+                    break
+            
+            selected_worker = st.selectbox(
+                "Type d'ouvrier requis",
+                options=[''] + list(worker_options.keys()),
+                index=list(worker_options.keys()).index(selected_worker_key) + 1 if selected_worker_key else 0,
+                key=widget_manager.generate_key("worker_type_select", "task_table")
+            )
+            
+            if selected_worker and selected_worker in worker_options:
+                worker_data = worker_options[selected_worker]
+                task["resource_type"] = worker_data.get('specialty', worker_data.get('name'))
+    
+    with col2:
+        st.markdown("#### 🛠️ Équipements Requis")
+        
+        current_equipment = task.get("min_equipment_needed", {})
+        
+        if not equipment:
+            st.warning("⚠️ Aucun équipement disponible. Configurez d'abord les équipements dans le modèle de ressources.")
+        else:
+            # Convert available equipment to selection options
+            equipment_options = {f"{eq.get('name', '')} ({eq.get('code', '')})": eq for eq in equipment}
+            
+            # Display current equipment with selection
+            if current_equipment:
+                st.write("**Équipements configurés:**")
+                
+                equipment_to_remove = []
+                for idx, (equip_name, quantity) in enumerate(current_equipment.items()):
+                    col1, col2, col3 = st.columns([3, 1, 1])
+                    
+                    with col1:
+                        # Find matching equipment from available options
+                        current_equip_key = None
+                        for key, eq_data in equipment_options.items():
+                            if eq_data.get('name') == equip_name or eq_data.get('code') == equip_name:
+                                current_equip_key = key
+                                break
+                        
+                        selected_equip = st.selectbox(
+                            f"Équipement {idx+1}",
+                            options=[''] + list(equipment_options.keys()),
+                            index=list(equipment_options.keys()).index(current_equip_key) + 1 if current_equip_key else 0,
+                            key=widget_manager.generate_key(f"equip_select_{idx}", "task_table")
+                        )
+                    
+                    with col2:
+                        if selected_equip:
+                            selected_qty = st.number_input(
+                                f"Quantité {idx+1}",
+                                value=int(quantity),
+                                min_value=1,
+                                key=widget_manager.generate_key(f"equip_qty_{idx}", "task_table")
+                            )
+                        else:
+                            selected_qty = 0
+                    
+                    with col3:
+                        st.text("")  # Spacer
+                        if st.checkbox("🗑️", key=widget_manager.generate_key(f"remove_equip_{idx}", "task_table")):
+                            equipment_to_remove.append(equip_name)
+                    
+                    # Update equipment
+                    if selected_equip and selected_equip in equipment_options:
+                        equip_data = equipment_options[selected_equip]
+                        equip_code = equip_data.get('code', equip_data.get('name'))
+                        if equip_code != equip_name:
+                            # Remove old name, add new one
+                            current_equipment[equip_code] = selected_qty
+                            if equip_name in current_equipment:
+                                del current_equipment[equip_name]
+                        else:
+                            current_equipment[equip_name] = selected_qty
+                
+                # Remove marked equipment
+                for equip_name in equipment_to_remove:
+                    if equip_name in current_equipment:
+                        del current_equipment[equip_name]
+                        st.rerun()
+            
+            # Add new equipment section
+            st.markdown("**Ajouter un équipement:**")
+            
+            col1, col2 = st.columns([3, 1])
+            with col1:
+                new_equip_select = st.selectbox(
+                    "Sélectionner un équipement",
+                    options=[''] + list(equipment_options.keys()),
+                    key=widget_manager.generate_key("new_equip_select", "task_table")
+                )
+            with col2:
+                new_equip_qty = st.number_input(
+                    "Quantité",
+                    min_value=1,
+                    value=1,
+                    key=widget_manager.generate_key("new_equip_qty", "task_table")
+                )
+            
+            # Auto-add when equipment is selected (form-safe approach)
+            if new_equip_select and new_equip_select in equipment_options:
+                equip_data = equipment_options[new_equip_select]
+                equip_code = equip_data.get('code', equip_data.get('name'))
+                current_equipment[equip_code] = new_equip_qty
+                st.success(f"✅ {equip_data.get('name')} ajouté")
+    
+    # Resource management instructions
+    st.info("""
+    💡 **Instructions:**
+    - Sélectionnez le type d'ouvrier requis pour cette tâche
+    - Pour les équipements: sélectionnez dans la liste et définissez les quantités
+    - Cochez 🗑️ pour supprimer un équipement
+    - Les ressources doivent être configurées dans le modèle de ressources
+    """)
+    
+    task["min_equipment_needed"] = current_equipment
+    return task
+
+def _render_predecessors_section(task: Dict, all_tasks: List[Dict]) -> Dict:
+    """Predecessors management - FIXED for form compatibility"""
+    st.markdown("#### 🔗 Prédécesseurs")
+    
+    predecessors = task.get("predecessors", [])
+    available_tasks = [t["base_task_id"] for t in all_tasks 
+                      if t.get("base_task_id") != task.get("base_task_id")]
+    
+    # Use multi-select instead of dynamic buttons
+    selected_predecessors = st.multiselect(
+        "Sélectionnez les prédécesseurs:",
+        options=available_tasks,
+        default=predecessors,
+        key=widget_manager.generate_key("predecessors_multiselect", "task_table"),
+        help="Maintenez Ctrl (Cmd sur Mac) pour sélectionner plusieurs tâches"
+    )
+    
+    # Show current selection
+    if selected_predecessors:
+        st.write("**Prédécesseurs sélectionnés:**")
+        for pred in selected_predecessors:
+            st.write(f"• {pred}")
+    else:
+        st.info("Aucun prédécesseur sélectionné")
+    
+    task["predecessors"] = selected_predecessors
+    return task
+
+def _render_options_section(task: Dict) -> Dict:
+    """Task options - SIMPLIFIED layout"""
+    st.markdown("### ⚙️ Options de Tâche")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        task["repeat_on_floor"] = st.checkbox(
+            "Répéter par étage",
+            value=task.get("repeat_on_floor", False),
+            key=widget_manager.generate_key("repeat_floor", "task_table")
+        )
+        task["weather_sensitive"] = st.checkbox(
+            "Sensible à la météo",
+            value=task.get("weather_sensitive", False),
+            key=widget_manager.generate_key("weather_sensitive", "task_table")
+        )
+    
+    with col2:
+        task["quality_gate"] = st.checkbox(
+            "Point de contrôle qualité", 
+            value=task.get("quality_gate", False),
+            key=widget_manager.generate_key("quality_gate", "task_table")
+        )
+        task["included"] = st.checkbox(
+            "Inclure dans le planning",
+            value=task.get("included", True),
+            key=widget_manager.generate_key("included", "task_table")
+        )
+    
+    return task
+
+
+def _save_table_changes(edited_df: pd.DataFrame, tasks: List[Dict]):
+    """Save changes from data editor"""
+    st.info("Fonctionnalité de sauvegarde en ligne à implémenter")
+
+def _validate_task(task: Dict, all_tasks: List[Dict], mode: str) -> bool:
+    """Essential validation"""
+    errors = []
+    
+    if not task.get("name", "").strip():
+        errors.append("Le nom de la tâche est obligatoire")
+    if not task.get("discipline", "").strip():
+        errors.append("La discipline est obligatoire")
+    if not task.get("sub_discipline", "").strip():
+        errors.append("La sous-discipline est obligatoire")
+    
+    method = task.get("duration_calculation_method", "fixed_duration")
+    if method == "fixed_duration" and task.get("base_duration", 0) <= 0:
+        errors.append("La durée fixe doit être positive")
+    elif method == "quantity_based" and task.get("unit_duration", 0) <= 0:
+        errors.append("La durée unitaire doit être positive")
+    
+    if task.get("min_crews_needed", 0) <= 0:
+        errors.append("Le nombre d'équipes doit être positif")
+    
+    if mode == "new":
+        existing_names = [t.get("name", "").lower() for t in all_tasks]
+        if task.get("name", "").lower() in existing_names:
+            errors.append("Une tâche avec ce nom existe déjà")
+    
+    for error in errors:
+        st.error(f"❌ {error}")
+    
+    return len(errors) == 0
+
+def _save_task(task: Dict, tasks: List[Dict], task_service, user_id: int, mode: str):
+    """Save task via service layer"""
+    try:
+        if mode == 'edit':
+            # Use the task ID from the original task being edited
+            result = task_service.update_custom_task(user_id, task.get('id'), task)
+            if result:
+                # Update local list
+                for i, t in enumerate(tasks):
+                    if t.get('id') == task.get('id'):
+                        tasks[i] = result
+                        break
+                st.success("✅ Tâche modifiée avec succès!")
+            else:
+                st.error("❌ Erreur lors de la modification")
+                
+        elif mode == 'new':
+            # Create new task - service will generate ID
+            result = task_service.create_custom_task(user_id, task)
+            if result:
+                tasks.append(result)
+                st.success(f"✅ Tâche créée: {result.get('base_task_id')}")
+            else:
+                st.error("❌ Erreur lors de la création")
+            
+        elif mode == 'duplicate':
+            # Create duplicate - service will generate new ID
+            duplicate_task = task.copy()
+            duplicate_task['base_task_id'] = None  # Let service generate new ID
+            result = task_service.create_custom_task(user_id, duplicate_task)
+            if result:
+                tasks.append(result)
+                st.success(f"✅ Tâche dupliquée: {result.get('base_task_id')}")
+            else:
+                st.error("❌ Erreur lors de la duplication")
+        
+        # Clear form state
+        st.session_state.task_form_state = {'mode': None, 'current_task': None}
+        
+    except Exception as e:
+        logger.error(f"Error saving task: {e}")
+        st.error(f"❌ Erreur: {e}")
+
+def _delete_task(task: Dict, tasks: List[Dict], task_service, user_id: int):
+    """Delete task with confirmation"""
+    task_id = task.get('base_task_id')
+    task_name = task.get('name')
+    
+    st.warning(f"Êtes-vous sûr de vouloir supprimer '{task_name}'?")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("✅ Confirmer", key=widget_manager.generate_key("confirm_delete", "task_table")):
+            try:
+                # Call service to delete
+                success = task_service.delete_custom_task(user_id, task.get('id'))
+                if success:
+                    # Remove from local list
+                    tasks[:] = [t for t in tasks if t.get('base_task_id') != task_id]
+                    st.success(f"✅ Tâche supprimée: {task_id}")
+                else:
+                    st.error("❌ Erreur lors de la suppression")
+            except Exception as e:
+                logger.error(f"Error deleting task: {e}")
+                st.error(f"❌ Erreur: {e}")
+    
+    with col2:
+        if st.button("❌ Annuler", key=widget_manager.generate_key("cancel_delete", "task_table")):
+            st.info("Suppression annulée")
+
+def _get_default_task_template() -> Dict:
+    """Default task template"""
+    return {
+        "base_task_id": "", "name": "", "discipline": "", "sub_discipline": "",
+        "resource_type": "", "task_type": "hybrid", "base_duration": 1,
+        "unit_duration": 0, "duration_calculation_method": "fixed_duration",
+        "min_crews_needed": 1, "max_crews_allowed": 1, "delay": 0,
+        "min_equipment_needed": {}, "max_equipment_allowed": {},
+        "predecessors": [], "repeat_on_floor": False, "weather_sensitive": False,
+        "quality_gate": False, "included": True
+    }
+
+# ====== End of frontend/components/data_tables/task_table.py ======
+
+
+
+# ====== Begin of frontend/components/data_tables/worker_table.py ======
+
+"""
+PROFESSIONAL Worker Table Component - Civil Engineering Scheduling
+UPDATED with essential template context integration
+"""
+import streamlit as st
+import pandas as pd
+import logging
+from typing import List, Dict, Optional, Any
+from backend.utils.widget_manager import widget_manager
+
+# Import template context
+from frontend.helpers.template_context import template_context
+
+logger = logging.getLogger(__name__)
+
+# French column mapping for workers
+FRENCH_COLUMNS = {
+    "code": "Code", "name": "Nom", "specialty": "Spécialité", "category": "Catégorie",
+    "base_count": "Effectif Base", "hourly_rate": "Taux Horaire", "daily_rate": "Taux Journalier",
+    "max_workers_per_crew": "Max par Équipe", "base_productivity_rate": "Taux Productivité Base",
+    "productivity_unit": "Unité Productivité", "qualification_level": "Niveau Qualification",
+    "is_active": "Actif"
+}
+
+def render_workers_table(workers: List[Dict], resource_service, user_id: int, available_templates: List[Dict], 
+                        template_id: Optional[int] = None, current_template_name: str = "", task_template_context: Dict = None, template_service=None):
+    """Render worker resources table with context awareness"""
+    # Initialize state
+    if 'worker_form_state' not in st.session_state:
+        st.session_state.worker_form_state = {'mode': None, 'current_worker': None}
+        
+    
+    # Check if context is available - use new context system first, fallback to old parameter
+    current_task_template = template_context.task_template if template_context.is_ready() else task_template_context
+     
+    if not template_context.is_ready() and not task_template_context:
+        st.error("🚫 Contexte de travail non défini. Veuillez sélectionner un modèle de ressources ET un modèle de tâches.")
+        return
+    
+    # Show context status
+    if template_context.is_ready():
+        resource = template_context.resource_template
+        task = template_context.task_template
+        st.success(f"🎯 Contexte Actif: {resource['name']} + {task.get('name', 'Sans nom')}")
+    elif task_template_context:
+        st.info(f"📝 Contexte Tâches: {task_template_context.get('name', 'Sans nom')}")
+
+    # Template-level actions section
+    _render_template_actions(resource_service, user_id, available_templates, template_id, current_template_name)
+    
+    state = st.session_state.worker_form_state
+    
+    # Apply filters FIRST to get filtered_workers
+    filtered_workers = _render_worker_filters(workers)
+    
+    # Render statistics
+    _render_worker_statistics(workers, filtered_workers)
+    
+    # Render active form if needed
+    if state['mode']:
+        _render_worker_form(state, workers, resource_service, user_id, available_templates, 
+                          template_id, current_task_template)
+        return
+    # Main table interface
+    _render_worker_table_interface(filtered_workers, resource_service, user_id, available_templates, template_id)
+
+
+def _render_template_actions(resource_service, user_id: int, available_templates: List[Dict], template_id: Optional[int] = None, current_template_name: str = ""):
+    """Render template-level action buttons"""
+    st.markdown("### 🔧 Actions au Niveau Modèle")
+    
+    # Display current template info if available
+    if template_id and current_template_name:
+        st.info(f"**Modèle actuel:** {current_template_name} (ID: {template_id})")
+    
+    # Template action buttons
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        if st.button("💾 Sauvegarder Modèle", use_container_width=True,
+                    key=widget_manager.generate_key("save_template_btn", "worker_table")):
+            _save_resource_template(resource_service, user_id, template_id, available_templates)
+    
+    with col2:
+        if st.button("➕ Nouveau Modèle", use_container_width=True,
+                    key=widget_manager.generate_key("new_template_btn", "worker_table")):
+            _create_new_template(resource_service, user_id)
+    
+    with col3:
+        if st.button("📥 Charger Défaut", use_container_width=True,
+                    key=widget_manager.generate_key("load_default_btn", "worker_table")):
+            _load_default_resources(resource_service, user_id)
+    
+    with col4:
+        if st.button("🔄 Actualiser", use_container_width=True,
+                    key=widget_manager.generate_key("refresh_btn", "worker_table")):
+            st.rerun()
+    
+    st.markdown("---")
+
+def _save_resource_template(resource_service, user_id: int, template_id: Optional[int], available_templates: List[Dict]):
+    """Save the current resource template"""
+    try:
+        if not template_id:
+            st.error("❌ Aucun modèle sélectionné pour sauvegarde")
+            return
+        
+        # Find template name
+        template_name = next((t['name'] for t in available_templates if t['id'] == template_id), "Modèle Inconnu")
+        
+        # In a real implementation, this would save all workers and equipment in the template
+        st.success(f"✅ Modèle '{template_name}' sauvegardé avec succès!")
+        
+        # Show statistics
+        workers = resource_service.get_user_workers(user_id, template_id)
+        equipment = resource_service.get_user_equipment(user_id, template_id)
+        
+        st.info(f"📊 Modèle contient: {len(workers)} ouvriers et {len(equipment)} équipements")
+        
+    except Exception as e:
+        st.error(f"❌ Erreur lors de la sauvegarde du modèle: {e}")
+        logger.error(f"Error saving template: {e}")
+
+def _create_new_template(resource_service, user_id: int):
+    """Create a new resource template"""
+    try:
+        # Generate unique template name
+        template_count = len(resource_service.get_user_resource_templates(user_id))
+        new_template_name = f"Nouveau Modèle {template_count + 1}"
+        
+        template_data = {
+            'name': new_template_name,
+            'description': 'Nouveau modèle de ressources créé automatiquement',
+            'category': 'Custom',
+            'user_id': user_id
+        }
+        
+        new_template = resource_service.create_resource_template(user_id, template_data)
+        
+        if new_template:
+            st.success(f"✅ Nouveau modèle créé: {new_template_name}")
+            st.rerun()
+        else:
+            st.error("❌ Erreur lors de la création du modèle")
+            
+    except Exception as e:
+        st.error(f"❌ Erreur lors de la création du modèle: {e}")
+        logger.error(f"Error creating template: {e}")
+
+def _load_default_resources(resource_service, user_id: int):
+    """Load default resources"""
+    try:
+        with st.spinner("📥 Chargement des ressources par défaut..."):
+            loaded_resources = resource_service.load_default_resources(user_id)
+            
+            if loaded_resources:
+                st.success(f"✅ {len(loaded_resources)} ressources par défaut chargées avec succès!")
+                st.rerun()
+            else:
+                st.error("❌ Erreur lors du chargement des ressources par défaut")
+                
+    except Exception as e:
+        st.error(f"❌ Erreur lors du chargement des ressources: {e}")
+        logger.error(f"Error loading default resources: {e}")
+
+def _render_worker_statistics(all_workers: List[Dict], filtered_workers: List[Dict]):
+    """Render worker statistics"""
+    total_count = len(all_workers)
+    filtered_count = len(filtered_workers)
+    
+    total_active = len([w for w in all_workers if w.get('is_active', True)])
+    filtered_active = len([w for w in filtered_workers if w.get('is_active', True)])
+    
+    total_specialties = len(set(w.get('specialty', '') for w in all_workers))
+    filtered_specialties = len(set(w.get('specialty', '') for w in filtered_workers))
+    
+    # Context-aware metrics
+    context_match_count = 0
+    if template_context.is_ready():
+        required_specialty = template_context.task_template.get('resource_type')
+        context_match_count = len([w for w in filtered_workers if w.get('specialty') == required_specialty])
+    
+    # Display statistics
+    col1, col2, col3, col4, col5 = st.columns(5)
+    
+    with col1:
+        st.metric("👥 Ouvriers", f"{filtered_count}/{total_count}")
+    
+    with col2:
+        st.metric("✅ Actifs", f"{filtered_active}/{total_active}")
+    
+    with col3:
+        st.metric("🎯 Spécialités", f"{filtered_specialties}/{total_specialties}")
+    
+    with col4:
+        filters_active = filtered_count != total_count
+        status = "🔍 Filtres Actifs" if filters_active else "👁️ Tous Visible"
+        st.metric("Statut", status)
+    
+    with col5:
+        if template_context.is_ready():
+            st.metric("🔗 Contexte", context_match_count)
+        else:
+            st.metric("🔗 Contexte", "N/A")
+
+def _render_worker_filters(workers: List[Dict]) -> List[Dict]:
+    """Render worker filters"""
+    if not workers:
+        return []
+    
+    # Get unique values for filters
+    specialties = sorted(list(set(w.get('specialty', '') for w in workers if w.get('specialty'))))
+    categories = sorted(list(set(w.get('category', '') for w in workers if w.get('category'))))
+    
+    st.markdown("### 🔍 Filtres Ouvriers")
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        selected_specialty = st.selectbox(
+            "Spécialité",
+            options=['Toutes'] + specialties,
+            key=widget_manager.generate_key("filter_specialty", "worker_table")
+        )
+    
+    with col2:
+        selected_category = st.selectbox(
+            "Catégorie",
+            options=['Toutes'] + categories,
+            key=widget_manager.generate_key("filter_category", "worker_table")
+        )
+    
+    with col3:
+        selected_active = st.selectbox(
+            "Statut", 
+            options=['Tous', 'Actifs', 'Inactifs'],
+            key=widget_manager.generate_key("filter_active", "worker_table")
+        )
+    
+    # Apply filters
+    filtered_workers = _apply_worker_filters(workers, selected_specialty, selected_category, selected_active)
+    
+    return filtered_workers
+
+def _apply_worker_filters(workers: List[Dict], specialty: str, category: str, active: str) -> List[Dict]:
+    """Apply filters to worker list"""
+    filtered = workers
+    
+    if specialty != 'Toutes':
+        filtered = [w for w in filtered if w.get('specialty') == specialty]
+    
+    if category != 'Toutes':
+        filtered = [w for w in filtered if w.get('category') == category]
+    
+    if active == 'Actifs':
+        filtered = [w for w in filtered if w.get('is_active', True)]
+    elif active == 'Inactifs':
+        filtered = [w for w in filtered if not w.get('is_active', True)]
+    
+    return filtered
+
+def _render_worker_table_interface(workers: List[Dict], resource_service, user_id: int, available_templates: List[Dict], template_id: Optional[int] = None,template_service=None):
+    """Render worker table interface"""
+    
+    # Worker selection
+    selected_worker = _render_worker_selection(workers)
+    
+    # Action buttons
+    col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+    
+    with col1:
+        if st.button("➕ Nouvel Ouvrier", use_container_width=True,
+                    key=widget_manager.generate_key("new_worker_btn", "worker_table")):
+            st.session_state.worker_form_state = {'mode': 'new', 'current_worker': None}
+            st.rerun()
+    
+    with col2:
+        disabled = selected_worker is None
+        if st.button("✏️ Modifier", use_container_width=True, disabled=disabled,
+                    key=widget_manager.generate_key("edit_worker_btn", "worker_table")):
+            st.session_state.worker_form_state = {'mode': 'edit', 'current_worker': selected_worker}
+            st.rerun()
+    
+    with col3:
+        if st.button("📋 Dupliquer", use_container_width=True, disabled=disabled,
+                    key=widget_manager.generate_key("duplicate_worker_btn", "worker_table")):
+            st.session_state.worker_form_state = {'mode': 'duplicate', 'current_worker': selected_worker}
+            st.rerun()
+    
+    with col4:
+        if st.button("🗑️ Supprimer", use_container_width=True, disabled=disabled,
+                    key=widget_manager.generate_key("delete_worker_btn", "worker_table")):
+            _delete_worker(selected_worker, workers, resource_service, user_id)
+            st.rerun()
+    
+    # Context-aware actions for selected worker
+    if template_context.is_ready() and selected_worker:
+        st.markdown("---")
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🔍 Tester Compatibilité", use_container_width=True,
+                        key=widget_manager.generate_key("test_compatibility", "worker_table")):
+                _test_worker_compatibility(selected_worker, template_service=template_service)
+        with col2:
+            if st.button("📈 Analyser Productivité", use_container_width=True,
+                        key=widget_manager.generate_key("analyze_productivity", "worker_table")):
+                _analyze_worker_productivity(selected_worker)
+    
+    # Data table
+    _render_worker_data_table(workers)
+
+def _test_worker_compatibility(worker: Dict, template_service=None):
+    """Test worker compatibility with current context"""
+    try:
+        if template_service is None:
+            st.error("❌ Service de template non disponible")
+            return
+        
+        # Create a mock task template for this worker's specialty
+        mock_task_template = {
+            'resource_type': worker.get('specialty'),
+            'name': f"Test pour {worker.get('name')}",
+            'base_task_id': f"TEST_{worker.get('code')}"
+        }
+        
+        validation = template_service.validate_template_compatibility(
+            template_context.resource_template,
+            mock_task_template
+        )
+        
+        if validation.get('compatible', False):
+            st.success(f"✅ '{worker['name']}' compatible avec le contexte")
+        else:
+            st.error(f"❌ Problèmes de compatibilité pour '{worker['name']}'")
+        
+        # Show specific issues
+        if validation.get('issues'):
+            st.write("**Problèmes identifiés:**")
+            for issue in validation['issues']:
+                st.write(f"- {issue}")
+                
+    except Exception as e:
+        st.error(f"❌ Erreur lors du test de compatibilité: {e}")
+
+def _analyze_worker_productivity(worker: Dict):
+    """Analyze worker productivity for current context"""
+    try:
+        st.info(f"📊 Analyse de productivité pour: {worker['name']}")
+        
+        # Get productivity rates
+        productivity_rates = worker.get('base_productivity_rate', {})
+        if isinstance(productivity_rates, dict):
+            default_rate = productivity_rates.get('default', 1.0)
+            
+            # Simple productivity analysis
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Taux Défaut", f"{default_rate:.2f}")
+            with col2:
+                st.metric("Effectif Base", worker.get('base_count', 1))
+            with col3:
+                st.metric("Max/Équipe", worker.get('max_workers_per_crew', 1))
+            
+            # Recommendations
+            if default_rate < 0.5:
+                st.warning("💡 Taux de productivité faible - envisager une formation")
+            elif default_rate > 2.0:
+                st.success("💡 Taux de productivité élevé - excellent!")
+                
+        else:
+            st.warning("⚠️ Configuration de productivité non standard")
+            
+    except Exception as e:
+        st.error(f"❌ Erreur d'analyse: {e}")
+
+def _render_worker_selection(workers: List[Dict]) -> Optional[Dict]:
+    """Render worker selection dropdown"""
+    if not workers:
+        st.info("📭 Aucun ouvrier disponible")
+        return None
+        
+    worker_options = {f"{w.get('name', 'Sans nom')} ({w.get('code', 'N/A')})": w for w in workers}
+    
+    selected_label = st.selectbox(
+        "Sélectionner un ouvrier:",
+        options=[''] + list(worker_options.keys()),
+        key=widget_manager.generate_key("worker_selector", "worker_table")
+    )
+    
+    if selected_label and selected_label in worker_options:
+        st.success(f"✅ Ouvrier sélectionné: {selected_label}")
+        return worker_options[selected_label]
+    
+    st.info("👆 Sélectionnez un ouvrier pour voir les actions disponibles")
+    return None
+
+def _render_worker_data_table(workers: List[Dict]):
+    """Render worker data table"""
+    if not workers:
+        st.info("📭 Aucun ouvrier à afficher")
+        return
+    
+    # Convert to DataFrame
+    df = _workers_to_dataframe(workers)
+    
+    # Display data editor
+    edited_df = st.data_editor(
+        df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Actif": st.column_config.CheckboxColumn("Actif"),
+            "Taux Horaire": st.column_config.NumberColumn("Taux Horaire (€)", format="%.2f €"),
+            "Effectif Base": st.column_config.NumberColumn("Effectif Base", min_value=0),
+            "Max par Équipe": st.column_config.NumberColumn("Max par Équipe", min_value=1)
+        },
+        key=widget_manager.generate_key("worker_data_editor", "worker_table")
+    )
+    
+    # Save changes
+    if st.button("💾 Sauvegarder Modifications", use_container_width=True,
+                key=widget_manager.generate_key("save_worker_table_btn", "worker_table")):
+        _save_worker_table_changes(edited_df, workers)
+
+def _render_worker_form(state: Dict, all_workers: List[Dict], resource_service, user_id: int, 
+                       available_templates: List[Dict], template_id: Optional[int] = None, 
+                       task_template_context: Dict = None):
+    """Render worker form for create/edit/duplicate with task template context"""
+    mode = state['mode']
+    worker = state['current_worker']
+    
+    # Display current context if available
+    if template_context.is_ready():
+        st.markdown(f"""
+        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+            <small>📝 Contexte: <strong>{template_context.resource_template['name']}</strong> + 
+            <strong>{template_context.task_template.get('name', 'Sans nom')}</strong></small>
+        </div>
+        """, unsafe_allow_html=True)
+    elif task_template_context:
+        st.markdown(f"""
+        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+            <small>📝 Contexte Tâches: <strong>{task_template_context.get('name', 'Sans nom')}</strong></small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    if mode == 'edit':
+        title = f"✏️ Modification: {worker.get('name')}"
+        submit_label = "💾 Sauvegarder"
+    elif mode == 'duplicate':
+        title = "📋 Duplication d'Ouvrier"
+        submit_label = "✅ Créer Copie"
+        worker = worker.copy() if worker else None
+    else:  # new
+        title = "➕ Nouvel Ouvrier"
+        submit_label = "➕ Créer Ouvrier"
+        worker = _get_default_worker_template()
+    
+    st.subheader(title)
+    
+    # Use a proper form with submit button
+    with st.form(key=widget_manager.generate_key("worker_form", "worker_table")):
+        # Basic Information
+        worker = _render_worker_basic_info_section(worker, mode, available_templates, template_id)
+        
+        # Rates and Productivity - with task template context
+        current_task_context = template_context.task_template if template_context.is_ready() else task_template_context
+        worker = _render_worker_rates_section(worker, current_task_context)
+        
+        # Skills and Certifications
+        worker = _render_worker_skills_section(worker)
+        
+        st.markdown("---")
+        
+        # Form Actions
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            submit_clicked = st.form_submit_button(
+                submit_label, 
+                use_container_width=True,
+                type="primary"
+            )
+        
+        with col2:
+            cancel_clicked = st.form_submit_button(
+                "❌ Annuler", 
+                use_container_width=True,
+                type="secondary"
+            )
+        
+        # Handle form submissions
+        if submit_clicked:
+            if _validate_worker(worker, all_workers, mode):
+                _save_worker(worker, all_workers, resource_service, user_id, template_id, mode)
+        
+        if cancel_clicked:
+            st.session_state.worker_form_state = {'mode': None, 'current_worker': None}
+            st.rerun()
+    
+    # Productivity testing button (outside the form to avoid conflicts)
+    if mode == 'edit' and worker.get('base_productivity_rate'):
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("🧪 Tester Productivité", use_container_width=True, type="secondary"):
+                _test_worker_productivity(worker, resource_service, current_task_context)
+
+def _test_worker_productivity(worker: Dict, resource_service, task_template_context: Dict = None):
+    """
+    Professional productivity testing tool for construction workers
+    """
+    try:
+        st.markdown("### 🧪 Test des Taux de Productivité")
+        
+        # Get productivity rates with proper dict handling
+        productivity_rates = worker.get("base_productivity_rate", {})
+        
+        # Handle legacy format (single float value)
+        if isinstance(productivity_rates, (int, float)):
+            productivity_rates = {"default": float(productivity_rates)}
+            st.info("ℹ️ Format de productivité mis à jour vers le nouveau format dictionnaire")
+        
+        if not productivity_rates:
+            st.warning("⚠️ Aucun taux de productivité défini pour cet ouvrier")
+            st.info("💡 Ajoutez des taux de productivité dans la section 'Tarifs et Productivité'")
+            return
+        
+        # Display current productivity configuration
+        st.markdown("#### 📊 Configuration Actuelle")
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("👥 Effectif Base", worker.get("base_count", 1))
+        with col2:
+            st.metric("👷 Max/Équipe", worker.get("max_workers_per_crew", 1))
+        with col3:
+            st.metric("📦 Unité", worker.get("productivity_unit", "unités/jour"))
+        
+        # Display productivity rates in a professional table
+        st.markdown("#### 🎯 Taux de Productivité par Tâche")
+        
+        if productivity_rates:
+            import pandas as pd
+            productivity_data = []
+            for task_id, rate in productivity_rates.items():
+                task_display = "Défaut" if task_id == "default" else task_id
+                productivity_data.append({
+                    "Tâche": task_display,
+                    "Taux": f"{rate:.2f}",
+                })
+            
+            df = pd.DataFrame(productivity_data)
+            st.dataframe(df, use_container_width=True, hide_index=True)
+        else:
+            st.warning("Aucun taux de productivité configuré")
+            return
+        
+        # Productivity Simulation Interface
+        st.markdown("#### 🔬 Simulation de Productivité")
+        
+        # Simulation parameters
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            simulation_hours = st.number_input(
+                "Heures de travail:",
+                value=8,
+                min_value=1,
+                max_value=24,
+                help="Durée de la simulation en heures"
+            )
+        
+        with col2:
+            simulation_workers = st.number_input(
+                "Nombre d'ouvriers:",
+                value=min(worker.get("base_count", 1), worker.get("max_workers_per_crew", 1)),
+                min_value=1,
+                max_value=worker.get("max_workers_per_crew", 10),
+                help="Nombre d'ouvriers pour la simulation"
+            )
+        
+        with col3:
+            selected_task = st.selectbox(
+                "Tâche à simuler:",
+                options=list(productivity_rates.keys()),
+                format_func=lambda x: "Taux par défaut" if x == "default" else f"Tâche {x}",
+                help="Sélectionnez la tâche à tester"
+            )
+        
+        # Calculate and display results
+        if selected_task:
+            base_rate = productivity_rates[selected_task]
+            
+            # Professional calculation
+            hourly_productivity = base_rate / 8.0  # Convert daily rate to hourly
+            total_productivity = hourly_productivity * simulation_hours * simulation_workers
+            
+            st.markdown("#### 📈 Résultats de la Simulation")
+            
+            # Results in a nice layout
+            result_col1, result_col2, result_col3 = st.columns(3)
+            
+            with result_col1:
+                st.metric(
+                    "Productivité Horaire", 
+                    f"{hourly_productivity:.2f}",
+                    help="Productivité par ouvrier par heure"
+                )
+            
+            with result_col2:
+                st.metric(
+                    "Productivité Totale", 
+                    f"{total_productivity:.2f}",
+                    help=f"Production totale pour {simulation_workers} ouvrier(s) pendant {simulation_hours}h"
+                )
+            
+            with result_col3:
+                efficiency = (total_productivity / (base_rate * simulation_workers)) * 100
+                st.metric(
+                    "Efficacité", 
+                    f"{efficiency:.1f}%",
+                    help="Efficacité par rapport à une journée standard"
+                )
+            
+            # Detailed breakdown
+            with st.expander("📋 Détail des Calculs", expanded=False):
+                st.markdown(f"""
+                **Formule de calcul:**
+                ```
+                Productivité Horaire = Taux Journalier / 8 heures
+                Productivité Totale = Productivité Horaire × Heures × Ouvriers
+                ```
+                
+                **Application:**
+                - Taux de base ({selected_task}): **{base_rate:.2f}** {worker.get('productivity_unit', 'unités')}/jour
+                - Productivité horaire: **{base_rate:.2f} / 8 = {hourly_productivity:.2f}** {worker.get('productivity_unit', 'unités')}/heure
+                - Production totale: **{hourly_productivity:.2f} × {simulation_hours}h × {simulation_workers} ouvrier(s) = {total_productivity:.2f}** {worker.get('productivity_unit', 'unités')}
+                """)
+            
+            # Professional recommendations
+            st.markdown("#### 💡 Recommandations Professionnelles")
+            
+            if base_rate < 0.5:
+                st.warning("**Taux très bas** - Cela peut entraîner des délais prolongés. Vérifiez la cohérence avec les standards du métier.")
+            elif base_rate > 10.0:
+                st.warning("**Taux très élevé** - Assurez-vous que ce taux est réaliste pour le type de travail.")
+            else:
+                st.success("**Taux dans la plage standard** - Configuration cohérente.")
+            
+            # Efficiency analysis
+            if efficiency < 80:
+                st.info("**Optimisation possible** - Considérez ajuster les effectifs ou améliorer les processus.")
+            elif efficiency > 120:
+                st.info("**Performance excellente** - Ce taux représente une productivité supérieure à la moyenne.")
+            
+    except Exception as e:
+        st.error(f"❌ Erreur lors du test de productivité: {str(e)}")
+        logger.error(f"Productivity test error: {e}")
+
+def _render_worker_basic_info_section(worker: Dict, mode: str, available_templates: List[Dict], template_id: Optional[int] = None) -> Dict:
+    """Render worker basic information section with IMPROVED template selection"""
+    st.markdown("### 📝 Informations de Base")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        worker["name"] = st.text_input(
+            "Nom de l'ouvrier *", 
+            value=worker.get("name", ""),
+            key=widget_manager.generate_key("worker_name", "worker_table")
+        )
+        worker["code"] = st.text_input(
+            "Code *", 
+            value=worker.get("code", ""),
+            key=widget_manager.generate_key("worker_code", "worker_table")
+        )
+        
+    with col2:
+        # IMPROVED Template selection with better validation
+        if available_templates:
+            template_options = {f"{t['name']} (ID: {t['id']})": t['id'] for t in available_templates}
+            
+            # Set default template if provided
+            if template_id and not worker.get("template_id"):
+                worker["template_id"] = template_id
+            
+            current_template_id = worker.get("template_id")
+            
+            # Find current template display name
+            current_template_display = None
+            if current_template_id:
+                for template in available_templates:
+                    if template['id'] == current_template_id:
+                        current_template_display = f"{template['name']} (ID: {template['id']})"
+                        break
+            
+            selected_template_display = st.selectbox(
+                "Modèle de ressources *",
+                options=[''] + list(template_options.keys()),
+                index=list(template_options.keys()).index(current_template_display) + 1 if current_template_display else 0,
+                key=widget_manager.generate_key("worker_template", "worker_table"),
+                help="Sélectionnez le modèle auquel cet ouvrier appartient"
+            )
+            
+            if selected_template_display and selected_template_display in template_options:
+                worker["template_id"] = template_options[selected_template_display]
+            elif not worker.get("template_id"):
+                st.error("❌ Veuillez sélectionner un modèle de ressources")
+        else:
+            st.error("❌ Aucun modèle de ressources disponible. Créez d'abord un modèle.")
+        
+        worker["specialty"] = st.text_input(
+            "Spécialité *", 
+            value=worker.get("specialty", ""),
+            key=widget_manager.generate_key("worker_specialty", "worker_table")
+        )
+    
+    
+    col3, col4 = st.columns(2)
+    with col3:
+        worker["category"] = st.selectbox(
+            "Catégorie *",
+            options=["Ouvrier", "Technicien", "Ingénieur", "Superviseur"],
+            index=["Ouvrier", "Technicien", "Ingénieur", "Superviseur"].index(worker.get("category", "Ouvrier")),
+            key=widget_manager.generate_key("worker_category", "worker_table")
+        )
+    
+    with col4:
+        worker["qualification_level"] = st.selectbox(
+            "Niveau de qualification *",
+            options=["Standard", "Qualifié", "Hautement Qualifié", "Expert"],
+            index=["Standard", "Qualifié", "Hautement Qualifié", "Expert"].index(worker.get("qualification_level", "Standard")),
+            key=widget_manager.generate_key("worker_qualification", "worker_table")
+        )
+    
+    worker["base_count"] = st.number_input(
+        "Effectif de base *", 
+        value=worker.get("base_count", 1), 
+        min_value=1,
+        key=widget_manager.generate_key("worker_base_count", "worker_table")
+    )
+    
+    worker["description"] = st.text_area(
+        "Description",
+        value=worker.get("description", ""),
+        key=widget_manager.generate_key("worker_description", "worker_table")
+    )
+    
+    return worker
+
+def _render_worker_rates_section(worker: Dict, task_template_context: Dict = None) -> Dict:
+    """Render worker rates and productivity section with task template context"""
+    st.markdown("### 💰 Tarifs et Productivité")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        worker["hourly_rate"] = st.number_input(
+            "Taux horaire (€) *", 
+            value=worker.get("hourly_rate", 0.0), 
+            min_value=0.0,
+            step=1.0,
+            key=widget_manager.generate_key("worker_hourly_rate", "worker_table")
+        )
+        worker["daily_rate"] = st.number_input(
+            "Taux journalier (€)", 
+            value=worker.get("daily_rate", 0.0), 
+            min_value=0.0,
+            step=1.0,
+            key=widget_manager.generate_key("worker_daily_rate", "worker_table")
+        )
+    
+    with col2:
+        worker["max_workers_per_crew"] = st.number_input(
+            "Maximum par équipe *", 
+            value=worker.get("max_workers_per_crew", 1), 
+            min_value=1,
+            key=widget_manager.generate_key("worker_max_crew", "worker_table")
+        )
+        
+        # Use unit from task template context if available
+        default_unit = task_template_context.get('unit', 'unités/jour') if task_template_context else 'unités/jour'
+        worker["productivity_unit"] = st.text_input(
+            "Unité de productivité par défaut *", 
+            value=worker.get("productivity_unit", default_unit),
+            key=widget_manager.generate_key("worker_productivity_unit", "worker_table")
+        )
+    
+    # Task-specific productivity rates section
+    st.markdown("#### 🎯 Taux de Productivité par Tâche")
+    
+    if task_template_context:
+        st.info(f"Taux pour le modèle: **{task_template_context.get('name', 'Sans nom')}**")
+    
+    # Initialize productivity rates as dict if not already
+    if "base_productivity_rate" not in worker or not isinstance(worker["base_productivity_rate"], dict):
+        worker["base_productivity_rate"] = {}
+    
+    productivity_rates = worker["base_productivity_rate"]
+    
+    # Display existing task productivity rates
+    if productivity_rates:
+        st.markdown("**Taux existants:**")
+        
+        tasks_to_remove = []
+        
+        for task_id, rate in list(productivity_rates.items()):
+            if task_id == "default":
+                continue  # Skip default for now
+                
+            col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+            
+            with col1:
+                st.text_input(
+                    "Tâche",
+                    value=f"{task_id}",
+                    key=f"task_display_{task_id}",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
+            
+            with col2:
+                new_rate = st.number_input(
+                    f"Taux",
+                    value=float(rate),
+                    min_value=0.1,
+                    step=0.1,
+                    key=f"rate_edit_{task_id}",
+                    label_visibility="collapsed"
+                )
+                if new_rate != rate:
+                    productivity_rates[task_id] = new_rate
+            
+            with col3:
+                st.text_input(
+                    "Unité",
+                    value=worker.get("productivity_unit", "unités/jour"),
+                    key=f"unit_display_{task_id}",
+                    disabled=True,
+                    label_visibility="collapsed"
+                )
+            
+            with col4:
+                if st.button("🗑️", key=f"remove_{task_id}", use_container_width=True):
+                    tasks_to_remove.append(task_id)
+        
+        # Remove tasks marked for deletion
+        for task_id in tasks_to_remove:
+            if task_id in productivity_rates:
+                del productivity_rates[task_id]
+                st.rerun()
+    
+    # Add new task productivity rate section
+    st.markdown("---")
+    st.markdown("**Ajouter un nouveau taux:**")
+    
+    col1, col2, col3 = st.columns([3, 2, 1])
+    
+    with col1:
+        new_task_id = st.text_input(
+            "ID de la tâche",
+            placeholder="Ex: TACHE-001",
+            key=widget_manager.generate_key("new_task_id", "worker_table")
+        )
+    
+    with col2:
+        new_rate = st.number_input(
+            "Taux de productivité",
+            value=1.0,
+            min_value=0.1,
+            step=0.1,
+            key=widget_manager.generate_key("new_rate_input", "worker_table")
+        )
+    
+    with col3:
+        st.markdown("<br>", unsafe_allow_html=True)
+        add_clicked = st.button(
+            "➕ Ajouter",
+            key=widget_manager.generate_key("add_productivity_rate", "worker_table"),
+            use_container_width=True
+        )
+    
+    # Handle adding new productivity rate
+    if add_clicked and new_task_id.strip():
+        if new_task_id in productivity_rates:
+            st.error(f"❌ Un taux existe déjà pour la tâche {new_task_id}")
+        else:
+            productivity_rates[new_task_id] = float(new_rate)
+            st.success(f"✅ Taux ajouté pour {new_task_id}")
+            st.rerun()
+    
+    # Default productivity rate
+    st.markdown("---")
+    st.markdown("**Taux par défaut:**")
+    
+    default_rate = productivity_rates.get("default", 1.0)
+    new_default_rate = st.number_input(
+        f"Taux de productivité par défaut ({worker.get('productivity_unit', 'unités/jour')}) *",
+        value=default_rate,
+        min_value=0.1,
+        step=0.1,
+        key=widget_manager.generate_key("default_productivity_rate", "worker_table"),
+        help="Taux utilisé pour les tâches non spécifiées"
+    )
+    
+    if new_default_rate != default_rate:
+        productivity_rates["default"] = new_default_rate
+    
+    # Update the worker dict
+    worker["base_productivity_rate"] = productivity_rates
+    
+    return worker
+
+def _render_worker_skills_section(worker: Dict) -> Dict:
+    """Render worker skills and certifications section"""
+    st.markdown("### 🛠️ Compétences et Certifications")
+    
+    # Skills (comma-separated)
+    current_skills = worker.get("skills", [])
+    skills_str = ", ".join(current_skills) if isinstance(current_skills, list) else str(current_skills)
+    
+    new_skills_str = st.text_input(
+        "Compétences (séparées par des virgules)",
+        value=skills_str,
+        key=widget_manager.generate_key("worker_skills", "worker_table"),
+        help="Liste des compétences séparées par des virgules"
+    )
+    
+    # Process skills input
+    if new_skills_str.strip():
+        worker["skills"] = [skill.strip() for skill in new_skills_str.split(",") if skill.strip()]
+    else:
+        worker["skills"] = []
+    
+    # Certifications (comma-separated)
+    current_certs = worker.get("required_certifications", [])
+    certs_str = ", ".join(current_certs) if isinstance(current_certs, list) else str(current_certs)
+    
+    new_certs_str = st.text_input(
+        "Certifications requises (séparées par des virgules)",
+        value=certs_str,
+        key=widget_manager.generate_key("worker_certifications", "worker_table"),
+        help="Liste des certifications requises séparées par des virgules"
+    )
+    
+    # Process certifications input
+    if new_certs_str.strip():
+        worker["required_certifications"] = [cert.strip() for cert in new_certs_str.split(",") if cert.strip()]
+    else:
+        worker["required_certifications"] = []
+    
+    # Active status
+    worker["is_active"] = st.checkbox(
+        "Ouvrier actif",
+        value=worker.get("is_active", True),
+        key=widget_manager.generate_key("worker_active", "worker_table")
+    )
+    
+    return worker
+
+# --- DATA MANAGEMENT FUNCTIONS ---
+def _workers_to_dataframe(workers: List[Dict]) -> pd.DataFrame:
+    """Convert workers to DataFrame for display"""
+    if not workers:
+        return pd.DataFrame()
+    
+    display_data = []
+    for worker in workers:
+        row = {}
+        for eng_col, fr_col in FRENCH_COLUMNS.items():
+            if eng_col in worker:
+                value = worker[eng_col]
+                if eng_col == 'base_productivity_rate':
+                    # Handle productivity rates display
+                    if isinstance(value, dict):
+                        rates_str = ", ".join([f"{k}:{v}" for k, v in value.items()])
+                        row[fr_col] = rates_str
+                    else:
+                        row[fr_col] = str(value)
+                elif eng_col == 'skills' or eng_col == 'required_certifications':
+                    row[fr_col] = ", ".join(value) if isinstance(value, list) else value
+                elif eng_col == 'is_active':
+                    row[fr_col] = '✅' if value else '❌'
+                else:
+                    row[fr_col] = value
+        
+        display_data.append(row)
+    
+    return pd.DataFrame(display_data)
+
+def _save_worker_table_changes(edited_df: pd.DataFrame, workers: List[Dict]):
+    """Save changes from data editor"""
+    st.info("Fonctionnalité de sauvegarde en ligne à implémenter")
+
+def _validate_worker(worker: Dict, all_workers: List[Dict], mode: str) -> bool:
+    """Validate worker data with task-specific productivity rates"""
+    errors = []
+    
+    if not worker.get("name", "").strip():
+        errors.append("Le nom de l'ouvrier est obligatoire")
+    if not worker.get("code", "").strip():
+        errors.append("Le code est obligatoire")
+    if not worker.get("specialty", "").strip():
+        errors.append("La spécialité est obligatoire")
+    if not worker.get("template_id"):
+        errors.append("Le modèle de ressources est obligatoire")
+    if worker.get("hourly_rate", 0) <= 0:
+        errors.append("Le taux horaire doit être positif")
+    if worker.get("base_count", 0) <= 0:
+        errors.append("L'effectif de base doit être positif")
+    
+    # Validate productivity rates structure
+    productivity_rates = worker.get("base_productivity_rate", {})
+    if not isinstance(productivity_rates, dict):
+        errors.append("Les taux de productivité doivent être au format dictionnaire")
+    else:
+        # Check each rate
+        for task_id, rate in productivity_rates.items():
+            if not task_id.strip():
+                errors.append("L'ID de tâche ne peut pas être vide")
+            if not isinstance(rate, (int, float)) or rate <= 0:
+                errors.append(f"Taux de productivité invalide pour la tâche '{task_id}': doit être un nombre positif")
+        
+        # Ensure we have at least a default rate
+        if not productivity_rates:
+            errors.append("Au moins un taux de productivité (par défaut) est requis")
+    
+    if mode == "new":
+        existing_codes = [w.get("code", "").lower() for w in all_workers]
+        if worker.get("code", "").lower() in existing_codes:
+            errors.append("Un ouvrier avec ce code existe déjà")
+    
+    for error in errors:
+        st.error(f"❌ {error}")
+    
+    return len(errors) == 0
+
+def _save_worker(worker: Dict, workers: List[Dict], resource_service, user_id: int, template_id: Optional[int], mode: str):
+    """Save worker via service layer"""
+    try:
+        # Set template_id if provided and not already set
+        if template_id and not worker.get("template_id"):
+            worker['template_id'] = template_id
+        
+        if mode == 'edit':
+            result = resource_service.update_worker(user_id, worker.get('id'), worker)
+            if result:
+                for i, w in enumerate(workers):
+                    if w.get('id') == worker.get('id'):
+                        workers[i] = result
+                        break
+                st.success("✅ Ouvrier modifié avec succès!")
+                # Check if template was default and is now modified
+                template = next((t for t in resource_service.get_user_resource_templates(user_id) 
+                               if t['id'] == template_id), None)
+                if template and not template.get('is_default', True):
+                    st.info("📝 Note: Ce modèle n'est plus considéré comme 'par défaut' car il a été modifié")
+            else:
+                st.error("❌ Erreur lors de la modification")
+                
+        elif mode == 'new':
+            result = resource_service.create_worker(user_id, worker)
+            if result:
+                workers.append(result)
+                st.success(f"✅ Ouvrier créé: {result.get('code')}")
+            else:
+                st.error("❌ Erreur lors de la création")
+            
+        elif mode == 'duplicate':
+            duplicate_worker = worker.copy()
+            duplicate_worker['code'] = f"{worker['code']}_COPY"
+            result = resource_service.create_worker(user_id, duplicate_worker)
+            if result:
+                workers.append(result)
+                st.success(f"✅ Ouvrier dupliqué: {result.get('code')}")
+            else:
+                st.error("❌ Erreur lors de la duplication")
+        
+        # Clear form state
+        st.session_state.worker_form_state = {'mode': None, 'current_worker': None}
+        
+    except Exception as e:
+        logger.error(f"Error saving worker: {e}")
+        st.error(f"❌ Erreur: {e}")
+
+def _delete_worker(worker: Dict, workers: List[Dict], resource_service, user_id: int):
+    """Delete worker with confirmation"""
+    worker_id = worker.get('id')
+    worker_name = worker.get('name')
+    
+    st.warning(f"Êtes-vous sûr de vouloir supprimer '{worker_name}'?")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button("✅ Confirmer", key=widget_manager.generate_key("confirm_delete_worker", "worker_table")):
+            try:
+                success = resource_service.delete_worker(user_id, worker_id)
+                if success:
+                    workers[:] = [w for w in workers if w.get('id') != worker_id]
+                    st.success(f"✅ Ouvrier supprimé: {worker_name}")
+                else:
+                    st.error("❌ Erreur lors de la suppression")
+            except Exception as e:
+                logger.error(f"Error deleting worker: {e}")
+                st.error(f"❌ Erreur: {e}")
+    
+    with col2:
+        if st.button("❌ Annuler", key=widget_manager.generate_key("cancel_delete_worker", "worker_table")):
+            st.info("Suppression annulée")
+
+def _get_default_worker_template() -> Dict:
+    """Get default worker template with proper productivity rate structure"""
+    return {
+        "name": "", "code": "", "specialty": "", "category": "Ouvrier",
+        "base_count": 1, "hourly_rate": 0.0, "daily_rate": 0.0,
+        "max_workers_per_crew": 1, 
+        "base_productivity_rate": {"default": 1.0},  # Dict with default rate
+        "productivity_unit": "unités/jour", "qualification_level": "Standard",
+        "skills": [], "required_certifications": [], "is_active": True,
+        "description": "", "template_id": None
+    }
+
+# ====== End of frontend/components/data_tables/worker_table.py ======
 
