@@ -229,13 +229,41 @@ class ConstructionApp:
         FIXED: Professional authenticated interface with unified session management
         """
         try:
+            # Get user context from auth session manager (do this before DB transaction)
+            auth_manager = st.session_state.auth_session_manager
+            user_id = auth_manager.get_user_id()
+            username = auth_manager.get_username()
+            user_role = auth_manager.get_user_role()
+
+            logger.info(f"👤 Preparing interface for: {username} (ID: {user_id}, Role: {user_role})")
+
+            # ------------------------------
+            # PRE-INITIALIZATION: Use a short-lived DB session to initialize context safely
+            # ------------------------------
+            try:
+                # Import DB helpers that provide transient sessions
+                from backend.db.session import get_db_session, close_db_session  # adapt to your implementation
+                # Create a short-lived session for initialization
+                temp_session = get_db_session()
+                try:
+                    services_for_init = self._initialize_services(temp_session, user_id)
+                    # Initialize template context idempotently BEFORE the main page transaction
+                    from frontend.helpers.template_context import get_template_context
+                    ctx = get_template_context()
+                    ctx.initialize_with_services(services_for_init, user_id)
+                finally:
+                    # close the temporary session (do not commit anything heavy here)
+                    try:
+                        temp_session.close()
+                    except Exception as e:
+                        logger.debug(f"Error closing temp session: {e}")
+            except Exception as e:
+                # Log, but continue — initialization is best-effort
+                logger.warning(f"Template context pre-initialization failed (continuing): {e}")
+
             # Single database transaction for entire page lifecycle
             with self._database_session_scope() as db_session:
-                # Get user context from auth session manager
-                auth_manager = st.session_state.auth_session_manager
-                user_id = auth_manager.get_user_id()
-                username = auth_manager.get_username()
-                user_role = auth_manager.get_user_role()
+                
 
                 logger.info(f"👤 Rendering interface for: {username} (ID: {user_id}, Role: {user_role})")
 

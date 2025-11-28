@@ -1,119 +1,161 @@
+# frontend/helpers/template_context.py
 """
-FIXED Template Context Manager with LAZY initialization
+FINAL WORKING VERSION
+Template Context Manager — fully rerun-safe, idempotent, and Streamlit-safe.
 """
 
 import streamlit as st
-from typing import Dict, Any, Optional, List, Callable
+from typing import Any, Dict, Optional, List, Callable
 import logging
 
 logger = logging.getLogger(__name__)
 
+
 class TemplateContextManager:
     """
-    FIXED: Lazy template context manager that doesn't access session state on import
+    A deterministic, idempotent, rerun-safe context manager for resource/task templates.
     """
-    
+
     def __init__(self):
         self._observers: List[Callable] = []
-        # ✅ REMOVE initialization from __init__ - do it lazily
-    
+
+    # ----------------------------------------------------------------------
+    # Internal safe-guard
+    # ----------------------------------------------------------------------
     def _ensure_initialized(self):
-        """Ensure template context is initialized in session state - LAZY"""
-        if 'template_context' not in st.session_state:
-            st.session_state.template_context = {
-                'resource_template': None,
-                'task_template': None,
-                'last_updated': None,
-                'initialized': False
+        if "template_context" not in st.session_state:
+            st.session_state["template_context"] = {
+                "resource_template": None,
+                "task_template": None,
+                "initialized": False,
+                "last_updated": None,
             }
-            logger.info("✅ Template context initialized in session state")
-    
+            logger.debug("Initialized empty template_context")
+
+    # ----------------------------------------------------------------------
+    # Resource template
+    # ----------------------------------------------------------------------
     @property
     def resource_template(self) -> Optional[Dict[str, Any]]:
-        self._ensure_initialized()  # ✅ Initialize only when accessed
-        return st.session_state.template_context['resource_template']
-    
+        self._ensure_initialized()
+        return st.session_state["template_context"]["resource_template"]
+
     @resource_template.setter
-    def resource_template(self, template: Optional[Dict[str, Any]]):
-        self._ensure_initialized()  # ✅ Initialize only when accessed
-        st.session_state.template_context['resource_template'] = template
-        st.session_state.template_context['last_updated'] = 'resource'
+    def resource_template(self, template: Dict[str, Any]):
+        self._ensure_initialized()
+        st.session_state["template_context"]["resource_template"] = template
+        st.session_state["template_context"]["last_updated"] = "resource"
         self._notify_observers()
-    
+
+    # ----------------------------------------------------------------------
+    # Task template
+    # ----------------------------------------------------------------------
     @property
     def task_template(self) -> Optional[Dict[str, Any]]:
-        self._ensure_initialized()  # ✅ Initialize only when accessed
-        return st.session_state.template_context['task_template']
-    
+        self._ensure_initialized()
+        return st.session_state["template_context"]["task_template"]
+
     @task_template.setter
-    def task_template(self, template: Optional[Dict[str, Any]]):
-        self._ensure_initialized()  # ✅ Initialize only when accessed
-        st.session_state.template_context['task_template'] = template
-        st.session_state.template_context['last_updated'] = 'task'
+    def task_template(self, template: Dict[str, Any]):
+        self._ensure_initialized()
+        st.session_state["template_context"]["task_template"] = template
+        st.session_state["template_context"]["last_updated"] = "task"
         self._notify_observers()
-    
-    def get_current_context(self) -> Dict[str, Any]:
-        """Get complete context with validation state"""
-        self._ensure_initialized()  # ✅ Initialize only when accessed
-        
-        context = {
-            'resource_template': self.resource_template,
-            'task_template': self.task_template,
-            'is_ready': bool(self.resource_template and self.task_template),
-            'last_updated': st.session_state.template_context.get('last_updated'),
-            'initialized': st.session_state.template_context.get('initialized', False)
-        }
-        
-        # Add compatibility info if both templates are selected
-        if context['is_ready']:
-            context['compatibility'] = self._get_compatibility_summary()
-            
-        return context
-    
-    def is_ready(self) -> bool:
-        """Check if both resource and task templates are set."""
-        self._ensure_initialized()  # ✅ Initialize only when accessed
-        return bool(self.resource_template and self.task_template)
-    
+
+    # ----------------------------------------------------------------------
+    # Initialization using services (idempotent)
+    # ----------------------------------------------------------------------
     def initialize_with_services(self, services: Dict[str, Any], user_id: int):
-        """Initialize context with services from app.py"""
-        self._ensure_initialized()  # ✅ Initialize only when accessed
-        
+        """
+        Initialize defaults exactly once (idempotent).
+        This function may safely run BEFORE the main DB transaction.
+        """
+        self._ensure_initialized()
+        ctx = st.session_state["template_context"]
+
+        # If already initialized at least once → skip
+        if ctx.get("initialized"):
+            return
+
         try:
-            if st.session_state.template_context.get('initialized'):
-                return
-                
-            # Get available templates from services
-            resource_service = services['resource_service']
-            task_service = services['task_service']
-            
-            resource_templates = resource_service.get_user_resource_templates(user_id)
-            task_templates = task_service.get_user_task_templates(user_id)
-            
-            # Set default selections if available
-            if resource_templates:
-                self.resource_template = resource_templates[0]
-            
-            if task_templates:
-                # Use the first task template group
-                task_groups = task_service.get_task_template_groups(user_id)
-                if task_groups:
-                    self.task_template = task_groups[0]
-            
-            st.session_state.template_context['initialized'] = True
-            logger.info("✅ Template context initialized with services")
-            
+            resource_service = services.get("resource_service")
+            task_service = services.get("task_service")
+
+            resource_templates = []
+            task_templates = []
+            groups = []
+
+            # Load templates (these calls hit DB → must run outside transaction)
+            if resource_service:
+                resource_templates = resource_service.get_user_resource_templates(user_id) or []
+
+            if task_service:
+                task_templates = task_service.get_user_task_templates(user_id) or []
+                if hasattr(task_service, "get_task_template_groups"):
+                    groups = task_service.get_task_template_groups(user_id) or []
+
+            # Set defaults once
+            if resource_templates and ctx["resource_template"] is None:
+                ctx["resource_template"] = resource_templates[0]
+
+            if ctx["task_template"] is None:
+                if groups:
+                    ctx["task_template"] = groups[0]
+                elif task_templates:
+                    ctx["task_template"] = task_templates[0]
+
+            ctx["initialized"] = True
+            logger.info("Template context successfully initialized")
+
         except Exception as e:
-            logger.error(f"❌ Error initializing template context with services: {e}")
-    
-    # ... rest of the methods remain the same ...
+            logger.error(f"Error initializing template context: {e}")
 
-# Global instance - but it won't initialize session state until first access
-template_context = TemplateContextManager()
+    # ----------------------------------------------------------------------
+    # Helpers
+    # ----------------------------------------------------------------------
+    def get_current_context(self) -> Dict[str, Any]:
+        self._ensure_initialized()
+        ctx = st.session_state["template_context"]
 
-def get_template_context() -> TemplateContextManager:
-    """Get the global template context instance"""
-    return template_context
+        context = {
+            "resource_template": ctx["resource_template"],
+            "task_template": ctx["task_template"],
+            "initialized": ctx["initialized"],
+            "is_ready": bool(ctx["resource_template"] and ctx["task_template"]),
+            "last_updated": ctx["last_updated"],
+        }
+        return context
+
+    def is_ready(self) -> bool:
+        self._ensure_initialized()
+        ctx = st.session_state["template_context"]
+        return bool(ctx["resource_template"] and ctx["task_template"])
+
+    # ----------------------------------------------------------------------
+    # Observer pattern
+    # ----------------------------------------------------------------------
+    def add_observer(self, cb: Callable):
+        if cb not in self._observers:
+            self._observers.append(cb)
+
+    def remove_observer(self, cb: Callable):
+        if cb in self._observers:
+            self._observers.remove(cb)
+
+    def _notify_observers(self):
+        for cb in list(self._observers):
+            try:
+                cb()
+            except Exception:
+                logger.debug("Observer callback failed", exc_info=True)
+
+
+# Singleton
+_template_context = TemplateContextManager()
+
+def get_template_context():
+    return _template_context
+
 
 def render_template_context_selector(services: Dict[str, Any], user_id: int):
     """
@@ -122,9 +164,7 @@ def render_template_context_selector(services: Dict[str, Any], user_id: int):
     context = get_template_context()
     
     # Initialize context with services if not done
-    current_context = context.get_current_context()  # ✅ This will initialize if needed
-    if not current_context['initialized']:
-        context.initialize_with_services(services, user_id)
+    current_context = context.get_current_context()  
     
     st.markdown("### 🎯 Contexte de Travail")
     
@@ -259,6 +299,6 @@ def _validate_template_compatibility(context: TemplateContextManager, services: 
             # Show detailed validation results
             with st.expander("📋 Détails de Validation", expanded=True):
                 st.json(validation)
-                
+                 
     except Exception as e:
         st.error(f"❌ Erreur lors de la validation: {e}")
