@@ -28,11 +28,12 @@ def render_resource_templates_tab(services: Dict[str, Any], user_id: int, db_ses
       
     try:
         # Get current context
-        from frontend.helpers.template_context import template_context
+        from frontend.helpers.template_context import TemplateContextManager
         
+        template_context= TemplateContextManager
         if not template_context.is_ready():
             st.info("👆 Sélectionnez un modèle de ressources et un modèle de tâches pour continuer")
-            return
+            return 
         
         current_resource = template_context.resource_template
         current_task = template_context.task_template
