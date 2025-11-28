@@ -75,13 +75,19 @@ def _render_template_actions(resource_service, user_id: int):
             st.success("✅ Modèle sauvegardé")
     
     with col2:
-        if st.button("📥 Charger Défaut", use_container_width=True):
-            resource_service.load_default_resources(user_id)
-            st.success("✅ Ressources chargées")
-            st.rerun()
-    
+        if st.button("📥 Charger Défaut", width='stretch'):
+            try:
+                loaded = resource_service.load_default_resources(user_id)
+                if loaded:
+                    st.success("✅ Ressources par défaut chargées!")
+                    st.rerun()
+                else:
+                    st.error("❌ Erreur lors du chargement")
+            except Exception as e:
+                st.error(f"❌ Erreur: {e}")
+
     with col3:
-        if st.button("🔄 Actualiser", use_container_width=True):
+        if st.button("🔄 Actualiser", width='stretch'):
             st.rerun()
     
     st.markdown("---")

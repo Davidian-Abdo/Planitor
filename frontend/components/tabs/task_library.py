@@ -17,21 +17,29 @@ def render_task_library_tab(services: Dict[str, Any], user_id: int, db_session=N
     </div>
     """, unsafe_allow_html=True)
     
-    task_service = services['task_service']
-    resource_service = services['resource_service']
+    task_service = services.get('task_service')
+    resource_service = services.get('resource_service')
+    
+    if not task_service:
+        st.error("❌ Service des tâches non disponible")
+        return
     
     try:
         # Get tasks from service
         tasks = task_service.get_user_task_templates(user_id)
         
-        # Get available resources from resource service
-        available_workers = resource_service.get_user_workers(user_id)
-        available_equipment = resource_service.get_user_equipment(user_id)
-        
-        available_resources = {
-            'workers': available_workers,
-            'equipment': available_equipment
-        }
+        # Get available resources if service exists
+        available_resources = {'workers': [], 'equipment': []}
+        if resource_service:
+            try:
+                available_workers = resource_service.get_user_workers(user_id)
+                available_equipment = resource_service.get_user_equipment(user_id)
+                available_resources = {
+                    'workers': available_workers,
+                    'equipment': available_equipment
+                }
+            except Exception as e:
+                st.warning(f"⚠️ Impossible de charger les ressources: {e}")
         
         # Display statistics
         col1, col2, col3, col4 = st.columns(4)
